@@ -1,27 +1,27 @@
 /*
  * This file contains all the necessary CSS for the application.
- * It has been completely renovated with a vibrant and energetic theme.
+ * It has been completely renovated to a sleek, dark, and vibrant theme.
  */
 
 /* ================== Color Palette ================== */
 :root {
-  /* Playful & Vibrant Theme */
-  --color-background: #F0F2F5; /* A light, airy gray for the background */
-  --color-text-primary: #333333; /* Dark text for high readability */
-  --color-card: #FFFFFF; /* Pure white for clean surfaces */
-  --color-border: #E0E0E0; /* A soft, subtle border */
-  --color-input: #F8F9FA; /* A slightly off-white for input fields */
-  --color-placeholder: #B0B0B0; /* A light placeholder gray */
-  --color-primary: #FF6B81; /* A cheerful, vibrant coral */
-  --color-primary-hover: #E55A70;
-  --color-secondary: #4ECDC4; /* A bright, modern turquoise */
-  --color-secondary-hover: #45B8AD;
-  --color-danger: #FF6B6B; /* A friendly red for destructive actions */
-  --color-danger-hover: #E55E5E;
-  --color-accent: #FFD166; /* A sunny, vibrant yellow */
-  --color-accent-hover: #E5B955;
-  --color-icon: #6B7280;
-  --color-icon-hover: #4B5563;
+  /* Dark, Futuristic Theme */
+  --color-background: #0A0A0A; /* A deep, rich black */
+  --color-text-primary: #FFFFFF; /* Crisp white for high contrast */
+  --color-card: #151515; /* A slightly lighter black for cards and panels */
+  --color-border: #333333; /* A subtle, dark border */
+  --color-input: #1C1C1C; /* A dark gray for input fields */
+  --color-placeholder: #5A5A5A; /* A lighter gray for placeholders */
+  --color-primary: #00F0FF; /* Electric cyan for main actions and highlights */
+  --color-primary-hover: #00E0E5;
+  --color-secondary: #FF44AA; /* Vivid magenta for secondary actions and accents */
+  --color-secondary-hover: #E53DA3;
+  --color-danger: #FF0055; /* A glowing red for destructive actions */
+  --color-danger-hover: #E5004D;
+  --color-accent: #FFFF00; /* Neon yellow for a pop of color */
+  --color-accent-hover: #E5E500;
+  --color-icon: #AAAAAA;
+  --color-icon-hover: #FFFFFF;
 }
 
 /* ================== Global & Base Styles ================== */
@@ -45,7 +45,7 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #A0A0A0;
+  background-color: #444444;
   border-radius: 4px;
 }
 
@@ -68,8 +68,8 @@ body {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 2px solid var(--color-primary);
+  box-shadow: 0 0 10px var(--color-primary);
 }
 @media (min-width: 768px) {
   .app-header {
@@ -120,8 +120,8 @@ body {
   right: 0;
   height: 66.6667%;
   background-color: var(--color-card);
-  border-top: 1px solid var(--color-border);
-  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.05);
+  border-top: 2px solid var(--color-secondary);
+  box-shadow: 0 -4px 10px var(--color-secondary);
   display: flex;
   flex-direction: column;
   z-index: 20;
@@ -132,9 +132,9 @@ body {
     position: relative;
     height: 100%;
     width: 50%;
-    border-left: 1px solid var(--color-border);
+    border-left: 2px solid var(--color-secondary);
     border-top: none;
-    box-shadow: -4px 0 15px rgba(0, 0, 0, 0.05);
+    box-shadow: -4px 0 10px var(--color-secondary);
   }
 }
 
@@ -164,32 +164,32 @@ body {
 }
 
 .playlist-item {
-  background-color: var(--color-card);
+  background-color: #1A1A1A;
   border-radius: 0.75rem;
   padding: 0.75rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
   gap: 1rem;
   cursor: grab;
   transition: all 0.15s ease-in-out;
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
 }
 .playlist-item.is-dragging {
   opacity: 0.7;
   transform: scale(0.98);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   border: 1px solid var(--color-primary);
 }
 .playlist-item.is-playing {
   border-left: 4px solid var(--color-secondary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -202,10 +202,10 @@ body {
   background-color: var(--color-card);
   padding: 1.5rem;
   border-radius: 1rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 20px var(--color-primary);
   width: 100%;
   max-width: 28rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-primary);
 }
 
 /* ================== Component Styles ================== */
@@ -219,7 +219,7 @@ body {
   transition: all 0.2s ease;
   cursor: pointer;
   border: none;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 .button-icon {
   padding: 0.5rem;
@@ -227,22 +227,22 @@ body {
 
 .button-primary {
   background: linear-gradient(45deg, var(--color-primary), var(--color-secondary));
-  color: var(--color-card);
+  color: var(--color-text-primary);
 }
 .button-primary:hover {
   background: linear-gradient(45deg, var(--color-primary-hover), var(--color-secondary-hover));
   transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
 .button-danger {
   background-color: var(--color-danger);
-  color: var(--color-card);
+  color: var(--color-text-primary);
 }
 .button-danger:hover {
   background-color: var(--color-danger-hover);
   transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
 .button-ghost {
@@ -251,7 +251,7 @@ body {
   box-shadow: none;
 }
 .button-ghost:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: #1A1A1A;
   color: var(--color-text-primary);
   transform: none;
   box-shadow: none;
@@ -263,7 +263,7 @@ body {
   box-shadow: none;
 }
 .button-ghost-accent:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: #1A1A1A;
   color: var(--color-accent-hover);
   transform: none;
   box-shadow: none;
@@ -275,7 +275,7 @@ body {
   box-shadow: none;
 }
 .button-ghost-danger:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: #1A1A1A;
   color: var(--color-danger-hover);
   transform: none;
   box-shadow: none;
@@ -303,7 +303,7 @@ body {
 }
 .input-field:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 5px var(--color-primary);
+  box-shadow: 0 0 8px var(--color-primary);
   outline: none;
 }
 
