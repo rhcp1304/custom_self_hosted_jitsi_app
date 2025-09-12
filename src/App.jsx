@@ -278,7 +278,7 @@ function App() {
         config.jwt = jwtToken.trim();
       }
 
-      const api = new window.JitsiMeetExternalAPI('nso-team-meeting.duckdns.org', config);
+      const api = new window.JitsiMeetExternalAPI('meet-nso.diq.geoiq.ai', config);
       const newParticipantId = generateParticipantId();
       setParticipantId(newParticipantId);
 
@@ -363,7 +363,7 @@ function App() {
   };
 
   const initializeJitsiOnLoad = () => {
-    const jitsiScriptUrl = 'https://nso-team-meeting.duckdns.org/external_api.js';
+    const jitsiScriptUrl = 'https://meet-nso.diq.geoiq.ai/external_api.js';
     const existingScript = document.querySelector(`script[src="${jitsiScriptUrl}"]`);
     if (!existingScript) {
       const script = document.createElement('script');
