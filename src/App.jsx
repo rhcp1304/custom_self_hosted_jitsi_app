@@ -513,8 +513,17 @@ function App() {
 
   const handleJwtSubmit = async () => {
     setShowJwtModal(false);
-    cleanupJitsi();
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    if (jitsiApi) {
+        try {
+            jitsiApi.dispose();
+        } catch (error) {
+            console.error('Error disposing Jitsi API:', error);
+        }
+    }
+    setJitsiApi(null);
+    setJitsiInitialized(false);
+    setIsInitializing(false);
+    await new Promise(resolve => setTimeout(resolve, 300));
     initializeJitsi();
   };
 
