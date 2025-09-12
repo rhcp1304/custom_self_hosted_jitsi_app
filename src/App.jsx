@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import {
-  MapPin, X, Youtube, List, Plus, Play, Trash2, Key, Loader2, Search, ChevronDown, AlertCircle,
+  MapPin, X, Youtube, List, Plus, Play, Trash2, Loader2, Search, ChevronDown, AlertCircle,
 } from 'lucide-react';
 import EnhancedFreeMap from './components/EnhancedFreeMap.jsx';
 import './App.css';
@@ -14,8 +14,6 @@ function App() {
   const [currentSharedVideo, setCurrentSharedVideo] = useState('');
   const [playlist, setPlaylist] = useState([]);
   const [showPlaylist, setShowPlaylist] = useState(false);
-  const [jwtToken, setJwtToken] = useState('');
-  const [showJwtModal, setShowJwtModal] = useState(false);
   const [jitsiInitialized, setJitsiInitialized] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [isLoadingVideoTitle, setIsLoadingVideoTitle] = useState(false);
@@ -274,10 +272,6 @@ function App() {
         },
       };
 
-      if (jwtToken && jwtToken.trim() && jwtToken.trim().length > 10) {
-        config.jwt = jwtToken.trim();
-      }
-
       const api = new window.JitsiMeetExternalAPI('meet-nso.diq.geoiq.ai', config);
       const newParticipantId = generateParticipantId();
       setParticipantId(newParticipantId);
@@ -511,24 +505,6 @@ function App() {
     return match ? match[1] : null;
   };
 
-  const handleJwtSubmit = async () => {
-    setShowJwtModal(false);
-    if (jitsiApi) {
-        try {
-            jitsiApi.dispose();
-        } catch (error) {
-            console.error('Error disposing Jitsi API:', error);
-        }
-    }
-    setJitsiApi(null);
-    setJitsiInitialized(false);
-    setIsInitializing(false);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    initializeJitsi();
-  };
-
-  const toggleJwtModal = () => setShowJwtModal(!showJwtModal);
-
   const handleDragStart = (e, video) => {
     setDraggedItem(video);
     e.dataTransfer.effectAllowed = "move";
@@ -560,9 +536,6 @@ function App() {
         <div className="flex items-center justify-between w-full md:w-auto mb-4 md:mb-0">
           <img src={LenskartLogo} alt="Lenskart Logo" className="h-12 w-24" />
           <div className="flex items-center md:hidden gap-2">
-            <Button onClick={toggleJwtModal} variant="ghost" size="icon" className="text-orange-500 hover:text-orange-400" title="Configure JWT">
-              <Key className="w-5 h-5" />
-            </Button>
             <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:text-white" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
@@ -601,10 +574,6 @@ function App() {
             </Button>
           </div>
           <div className="hidden md:flex items-center gap-2">
-            {/* JWT key icon is orange */}
-            <Button onClick={toggleJwtModal} variant="ghost" size="icon" className="text-orange-500 hover:bg-gray-700 hover:text-orange-400" title="Configure JWT">
-              <Key className="w-5 h-5" />
-            </Button>
             <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-700 hover:text-white" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
@@ -721,35 +690,6 @@ function App() {
           </div>
         )}
       </div>
-
-      {/* JWT Modal */}
-      {showJwtModal && (
-        <div className="fixed inset-0 bg-gray-950/75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-white text-xl font-semibold">Enter JWT Token</h2>
-              <Button onClick={toggleJwtModal} variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-700">
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
-            <p className="text-sm text-gray-400 mb-4">
-              Enter your Jitsi as a Service (JaaS) JSON Web Token to access premium features.
-            </p>
-            <input
-              type="password"
-              placeholder="Paste your JWT token here..."
-              value={jwtToken}
-              onChange={(e) => setJwtToken(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white placeholder-gray-500 border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
-            />
-            <div className="mt-6 flex justify-end">
-              <Button onClick={handleJwtSubmit} className="bg-blue-600 hover:bg-blue-700 text-white">
-                Apply & Refresh
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Custom Error Modal */}
       {showErrorModal && (
