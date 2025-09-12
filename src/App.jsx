@@ -705,7 +705,12 @@ function App() {
                   <h2 className="text-lg font-semibold">Map Services</h2>
                 </div>
                 <div className="flex-1 min-h-0">
-                  <EnhancedFreeMap />
+                  {/* Replaced <EnhancedFreeMap /> with GeoIQ iframe */}
+                  <iframe
+                    src="https://retailiq.geoiq.ai/in/site-report/88755"
+                    title="GeoIQ Site Report"
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                  />
                 </div>
               </div>
             )}
