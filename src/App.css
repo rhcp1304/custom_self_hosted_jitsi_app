@@ -5,23 +5,23 @@
 
 /* ================== Color Palette ================== */
 :root {
-  /* Dark Mode Palette */
-  --color-background: #0d0d10;
-  --color-text-primary: #f3f4f6;
-  --color-card: #1f1f23;
-  --color-border: #333338;
-  --color-input: #1f1f23;
-  --color-placeholder: #6b7280;
-  --color-primary: #1e40af; /* A deep, vibrant blue */
-  --color-primary-hover: #1d3a9d;
-  --color-secondary: #059669; /* A professional green */
-  --color-secondary-hover: #047857;
-  --color-danger: #ef4444; /* A vivid red for destructive actions */
-  --color-danger-hover: #dc2626;
-  --color-accent: #f97316; /* A warm orange for accents */
-  --color-accent-hover: #ea580c;
-  --color-icon: #9ca3af;
-  --color-icon-hover: #d1d5db;
+  /* Dark Mode Palette - A professional yet modern theme */
+  --color-background: #111111; /* A very deep, classic black */
+  --color-text-primary: #e5e7eb; /* Off-white for readability */
+  --color-card: #1f1f1f; /* A subtle dark gray for cards */
+  --color-border: #333333; /* A muted border color */
+  --color-input: #262626; /* Slightly lighter than card for input fields */
+  --color-placeholder: #525252; /* A soft placeholder gray */
+  --color-primary: #00bfff; /* A vibrant, eye-catching deep sky blue */
+  --color-primary-hover: #0099cc;
+  --color-secondary: #ff8c00; /* A dynamic, professional orange-yellow */
+  --color-secondary-hover: #cc7000;
+  --color-danger: #ff4500; /* A strong red for destructive actions */
+  --color-danger-hover: #e03d00;
+  --color-accent: #8a2be2; /* A rich, deep purple for accents */
+  --color-accent-hover: #7b21c4;
+  --color-icon: #a3a3a3;
+  --color-icon-hover: #d4d4d4;
 }
 
 /* ================== Global & Base Styles ================== */
