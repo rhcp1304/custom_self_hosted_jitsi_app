@@ -371,7 +371,7 @@ function App() {
       script.async = true;
       script.onload = initializeJitsi;
       script.onerror = () => console.error('Failed to load Jitsi External API script.');
-      document.head.appendChild(script);git remo
+      document.head.appendChild(script);
     } else {
       initializeJitsi();
     }
