@@ -1,27 +1,27 @@
 /*
  * This file contains all the necessary CSS for the application.
- * It uses a simple, class-based approach to avoid complex build configurations.
+ * It uses a simple, class-based approach to create a modern and vibrant UI.
  */
 
 /* ================== Color Palette ================== */
 :root {
-  /* Dark Mode Palette - A professional yet modern theme */
-  --color-background: #111111; /* A very deep, classic black */
-  --color-text-primary: #e5e7eb; /* Off-white for readability */
-  --color-card: #1f1f1f; /* A subtle dark gray for cards */
-  --color-border: #333333; /* A muted border color */
-  --color-input: #262626; /* Slightly lighter than card for input fields */
+  /* Neon Cyberpunk Theme */
+  --color-background: #0D1117; /* A deep, dark blue-black */
+  --color-text-primary: #E5E7EB; /* Off-white for readability */
+  --color-card: #161B22; /* A slightly lighter dark gray for surfaces */
+  --color-border: #30363D; /* Muted border color for structure */
+  --color-input: #0D1117; /* Same as background for a unified look */
   --color-placeholder: #525252; /* A soft placeholder gray */
-  --color-primary: #00bfff; /* A vibrant, eye-catching deep sky blue */
-  --color-primary-hover: #0099cc;
-  --color-secondary: #ff8c00; /* A dynamic, professional orange-yellow */
-  --color-secondary-hover: #cc7000;
-  --color-danger: #ff4500; /* A strong red for destructive actions */
-  --color-danger-hover: #e03d00;
-  --color-accent: #8a2be2; /* A rich, deep purple for accents */
-  --color-accent-hover: #7b21c4;
-  --color-icon: #a3a3a3;
-  --color-icon-hover: #d4d4d4;
+  --color-primary: #00FFFF; /* Vibrant cyan for main actions */
+  --color-primary-hover: #00E5E5;
+  --color-secondary: #FF00FF; /* Electric magenta for secondary actions */
+  --color-secondary-hover: #E500E5;
+  --color-danger: #FF4500; /* A strong red for destructive actions */
+  --color-danger-hover: #E03D00;
+  --color-accent: #A100FF; /* A rich, deep purple for accents */
+  --color-accent-hover: #8D00E5;
+  --color-icon: #A3A3A3;
+  --color-icon-hover: #D4D4D4;
 }
 
 /* ================== Global & Base Styles ================== */
@@ -68,7 +68,8 @@ body {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-bottom: 2px solid var(--color-primary);
+  box-shadow: 0 0 15px var(--color-primary);
 }
 @media (min-width: 768px) {
   .app-header {
@@ -118,9 +119,9 @@ body {
   left: 0;
   right: 0;
   height: 66.6667%;
-  background-color: #26262b;
-  border-top: 1px solid #333338;
-  box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.1);
+  background-color: var(--color-card);
+  border-top: 2px solid var(--color-secondary);
+  box-shadow: 0 0 15px var(--color-secondary);
   display: flex;
   flex-direction: column;
   z-index: 20;
@@ -131,9 +132,9 @@ body {
     position: relative;
     height: 100%;
     width: 50%;
-    border-left: 1px solid #333338;
+    border-left: 2px solid var(--color-secondary);
     border-top: none;
-    box-shadow: -4px 0 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 15px var(--color-secondary);
   }
 }
 
@@ -172,20 +173,23 @@ body {
   gap: 1rem;
   cursor: grab;
   transition: all 0.15s ease-in-out;
+  border: 1px solid transparent;
 }
 .playlist-item.is-dragging {
   opacity: 0.5;
   transform: scale(0.95);
   border: 2px solid var(--color-primary);
+  box-shadow: 0 0 10px var(--color-primary);
 }
 .playlist-item.is-playing {
-  border-left: 4px solid var(--color-secondary);
+  border-left: 4px solid var(--color-primary);
+  box-shadow: inset 4px 0 10px var(--color-primary);
 }
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(13, 13, 16, 0.75);
+  background-color: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -198,10 +202,10 @@ body {
   background-color: var(--color-card);
   padding: 1.5rem;
   border-radius: 1rem;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 25px var(--color-primary);
   width: 100%;
   max-width: 28rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-primary);
 }
 
 /* ================== Component Styles ================== */
@@ -212,7 +216,7 @@ body {
   border-radius: 0.5rem;
   font-weight: 500;
   padding: 0.5rem 1rem;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
   border: none;
 }
@@ -221,19 +225,23 @@ body {
 }
 
 .button-primary {
-  background-color: var(--color-primary);
+  background: linear-gradient(45deg, var(--color-primary), var(--color-accent));
   color: var(--color-text-primary);
+  box-shadow: 0 0 5px var(--color-primary);
 }
 .button-primary:hover {
-  background-color: var(--color-primary-hover);
+  background: linear-gradient(45deg, var(--color-primary-hover), var(--color-accent-hover));
+  box-shadow: 0 0 15px var(--color-primary);
 }
 
 .button-danger {
   background-color: var(--color-danger);
   color: var(--color-text-primary);
+  box-shadow: 0 0 5px var(--color-danger);
 }
 .button-danger:hover {
   background-color: var(--color-danger-hover);
+  box-shadow: 0 0 15px var(--color-danger);
 }
 
 .button-ghost {
@@ -241,7 +249,7 @@ body {
   color: var(--color-icon);
 }
 .button-ghost:hover {
-  background-color: var(--color-card);
+  background-color: rgba(255, 255, 255, 0.1);
   color: var(--color-text-primary);
 }
 
@@ -250,8 +258,8 @@ body {
   color: var(--color-accent);
 }
 .button-ghost-accent:hover {
-  background-color: var(--color-card);
-  color: var(--color-accent-hover);
+  background-color: rgba(255, 0, 255, 0.1);
+  color: var(--color-secondary);
 }
 
 .button-ghost-danger {
@@ -259,13 +267,14 @@ body {
   color: var(--color-danger);
 }
 .button-ghost-danger:hover {
-  background-color: var(--color-card);
-  color: var(--color-danger-hover);
+  background-color: rgba(255, 69, 0, 0.1);
+  color: var(--color-danger);
 }
 
 .button-disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .input-field {
@@ -276,13 +285,14 @@ body {
   background-color: var(--color-input);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 .input-field::placeholder {
   color: var(--color-placeholder);
 }
 .input-field:focus {
-  border-color: var(--color-text-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 10px var(--color-primary);
   outline: none;
 }
 
