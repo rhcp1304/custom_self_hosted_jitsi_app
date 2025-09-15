@@ -301,6 +301,8 @@ function App() {
       api.addEventListener('sharedVideoStarted', (event) => {
         setIsVideoSharing(true);
         setCurrentSharedVideo(event.url);
+        // This command forces the local player to be muted.
+        // It does not affect other participants' players.
         forceAudioMute();
       });
       api.addEventListener('sharedVideoStopped', (event) => {
