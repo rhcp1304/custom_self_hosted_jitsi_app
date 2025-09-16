@@ -205,131 +205,131 @@ function App() {
   };
 
   const stopMutingInterval = () => {
-    if (muteIntervalRef.current) {
-      clearInterval(muteIntervalRef.current);
-      muteIntervalRef.current = null;
-    }
+      if (muteIntervalRef.current) {
+          clearInterval(muteIntervalRef.current);
+          muteIntervalRef.current = null;
+      }
   };
 
   const forceAudioMute = () => {
-    stopMutingInterval();
-    muteJitsiSharedVideo();
-    muteIntervalRef.current = setInterval(muteJitsiSharedVideo, 500);
-    setAudioMuted(true);
+      stopMutingInterval();
+      muteJitsiSharedVideo();
+      muteIntervalRef.current = setInterval(muteJitsiSharedVideo, 500);
+      setAudioMuted(true);
   };
 
   const initializeJitsi = async () => {
-    if (isInitializing || (jitsiInitialized && jitsiApi)) return;
-    if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) {
-      console.warn('JitsiMeetExternalAPI script or container not ready.');
-      return;
-    }
-    setIsInitializing(true);
-    setSyncStatus('disconnected');
-
-    try {
-      if (jitsiContainerRef.current) {
-        while (jitsiContainerRef.current.firstChild) {
-          jitsiContainerRef.current.removeChild(jitsiContainerRef.current.firstChild);
-        }
+      if (isInitializing || (jitsiInitialized && jitsiApi)) return;
+      if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) {
+          console.warn('JitsiMeetExternalAPI script or container not ready.');
+          return;
       }
-      setPlaylist([]);
-      localStorage.removeItem('jitsi_shared_playlist');
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      const config = {
-        roomName: 'property-approval-meeting',
-        parentNode: jitsiContainerRef.current,
-        width: '100%',
-        height: '100%',
-        configOverwrite: {
-          startWithAudioMuted: true,
-          startWithVideoMuted: true,
-          prejoinPageEnabled: true,
-          enableWelcomePage: false,
-          enableClosePage: false,
-          channelLastN: -1,
-          enableDataChannels: true,
-          enableP2P: true,
-          p2p: { enabled: true },
-          disableAP: false,
-        },
-        interfaceConfigOverwrite: {
-          TOOLBAR_BUTTONS: [
-            'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen', 'fodeviceselection',
-            'hangup', 'profile', 'chat', 'recording', 'livestreaming', 'etherpad', 'sharedvideo',
-            'settings', 'raisehand', 'videoquality', 'filmstrip', 'invite', 'feedback', 'stats',
-            'shortcuts', 'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
-            'security',
-          ],
-          SHOW_JITSI_WATERMARK: false,
-          SHOW_WATERMARK_FOR_GUESTS: false,
-          SHOW_BRAND_WATERMARK: false,
-          BRAND_WATERMARK_LINK: '',
-          SHOW_POWERED_BY: false,
-          SHOW_PROMOTIONAL_CLOSE_PAGE: false,
-          SHOW_CHROME_EXTENSION_BANNER: false,
-        },
-      };
-
-      const api = new window.JitsiMeetExternalAPI('meet-nso.diq.geoiq.ai', config);
-      const newParticipantId = generateParticipantId();
-      setParticipantId(newParticipantId);
-
-      api.addEventListener('videoConferenceJoined', (event) => {
-        setSyncStatus('connected');
-        setTimeout(() => {
-          startPeriodicSync();
-          broadcastPlaylistUpdate('FULL_SYNC', playlist);
-        }, 2000);
-      });
-
-      api.addEventListener('participantJoined', (event) => {
-        setTimeout(() => {
-          if (playlist.length > 0) {
-            broadcastPlaylistUpdate('FULL_SYNC', playlist);
-          }
-        }, 1000);
-      });
-
-      api.addEventListener('endpointTextMessageReceived', (event) => handleIncomingMessage(event));
-      api.addEventListener('incomingMessage', (event) => {
-        if (event.message && event.message.includes('[PLAYLIST_SYNC]')) {
-          handleIncomingMessage(event.message);
-        }
-      });
-      api.addEventListener('sharedVideoStarted', (event) => {
-        setIsVideoSharing(true);
-        setCurrentSharedVideo(event.url);
-        // This command forces the local player to be muted.
-        // It does not affect other participants' players.
-        forceAudioMute();
-      });
-      api.addEventListener('sharedVideoStopped', (event) => {
-        setIsVideoSharing(false);
-        setCurrentSharedVideo('');
-        stopMutingInterval();
-        setAudioMuted(false);
-      });
-
-      await new Promise((resolve) => {
-        const checkReady = () => {
-          if (api.isAudioMuted !== undefined) resolve();
-          else setTimeout(checkReady, 100);
-        };
-        checkReady();
-      });
-
-      setJitsiApi(api);
-      setJitsiInitialized(true);
-    } catch (error) {
-      console.error('Error during Jitsi initialization:', error);
-      setJitsiInitialized(false);
-      setJitsiApi(null);
+      setIsInitializing(true);
       setSyncStatus('disconnected');
-    } finally {
-      setIsInitializing(false);
-    }
+
+      try {
+          if (jitsiContainerRef.current) {
+              while (jitsiContainerRef.current.firstChild) {
+                  jitsiContainerRef.current.removeChild(jitsiContainerRef.current.firstChild);
+              }
+          }
+          setPlaylist([]);
+          localStorage.removeItem('jitsi_shared_playlist');
+          await new Promise((resolve) => setTimeout(resolve, 200));
+
+          const config = {
+              roomName: 'property-approval-meeting',
+              parentNode: jitsiContainerRef.current,
+              width: '100%',
+              height: '100%',
+              configOverwrite: {
+                  startWithAudioMuted: true,
+                  startWithVideoMuted: true,
+                  prejoinPageEnabled: true,
+                  enableWelcomePage: false,
+                  enableClosePage: false,
+                  channelLastN: -1,
+                  enableDataChannels: true,
+                  enableP2P: true,
+                  p2p: { enabled: true },
+                  disableAP: false,
+              },
+              interfaceConfigOverwrite: {
+                  TOOLBAR_BUTTONS: [
+                      'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen', 'fodeviceselection',
+                      'hangup', 'profile', 'chat', 'recording', 'livestreaming', 'etherpad', 'sharedvideo',
+                      'settings', 'raisehand', 'videoquality', 'filmstrip', 'invite', 'feedback', 'stats',
+                      'shortcuts', 'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
+                      'security',
+                  ],
+                  SHOW_JITSI_WATERMARK: false,
+                  SHOW_WATERMARK_FOR_GUESTS: false,
+                  SHOW_BRAND_WATERMARK: false,
+                  BRAND_WATERMARK_LINK: '',
+                  SHOW_POWERED_BY: false,
+                  SHOW_PROMOTIONAL_CLOSE_PAGE: false,
+                  SHOW_CHROME_EXTENSION_BANNER: false,
+              },
+          };
+
+          const api = new window.JitsiMeetExternalAPI('meet-nso.diq.geoiq.ai', config);
+          const newParticipantId = generateParticipantId();
+          setParticipantId(newParticipantId);
+
+          api.addEventListener('videoConferenceJoined', (event) => {
+              setSyncStatus('connected');
+              setTimeout(() => {
+                  startPeriodicSync();
+                  broadcastPlaylistUpdate('FULL_SYNC', playlist);
+              }, 2000);
+          });
+
+          api.addEventListener('participantJoined', (event) => {
+              setTimeout(() => {
+                  if (playlist.length > 0) {
+                      broadcastPlaylistUpdate('FULL_SYNC', playlist);
+                  }
+              }, 1000);
+          });
+
+          api.addEventListener('endpointTextMessageReceived', (event) => handleIncomingMessage(event));
+          api.addEventListener('incomingMessage', (event) => {
+              if (event.message && event.message.includes('[PLAYLIST_SYNC]')) {
+                  handleIncomingMessage(event.message);
+              }
+          });
+          api.addEventListener('sharedVideoStarted', (event) => {
+              setIsVideoSharing(true);
+              setCurrentSharedVideo(event.url);
+              // This command forces the local player to be muted.
+              // It does not affect other participants' players.
+              forceAudioMute();
+          });
+          api.addEventListener('sharedVideoStopped', (event) => {
+              setIsVideoSharing(false);
+              setCurrentSharedVideo('');
+              stopMutingInterval();
+              setAudioMuted(false);
+          });
+
+          await new Promise((resolve) => {
+              const checkReady = () => {
+                  if (api.isAudioMuted !== undefined) resolve();
+                  else setTimeout(checkReady, 100);
+              };
+              checkReady();
+          });
+
+          setJitsiApi(api);
+          setJitsiInitialized(true);
+      } catch (error) {
+          console.error('Error during Jitsi initialization:', error);
+          setJitsiInitialized(false);
+          setJitsiApi(null);
+          setSyncStatus('disconnected');
+      } finally {
+          setIsInitializing(false);
+      }
   };
 
   const cleanupJitsi = () => {
@@ -359,18 +359,21 @@ function App() {
   };
 
   const initializeJitsiOnLoad = () => {
-    const jitsiScriptUrl = 'https://meet-nso.diq.geoiq.ai/external_api.js';
-    const existingScript = document.querySelector(`script[src="${jitsiScriptUrl}"]`);
-    if (!existingScript) {
-      const script = document.createElement('script');
-      script.src = jitsiScriptUrl;
-      script.async = true;
-      script.onload = initializeJitsi;
-      script.onerror = () => console.error('Failed to load Jitsi External API script.');
-      document.head.appendChild(script);
-    } else {
-      initializeJitsi();
+    // UPDATED LINE: Add a cache-busting query parameter
+    const jitsiScriptUrl = `https://meet-nso.diq.geoiq.ai/external_api.js?v=${Date.now()}`;
+    const existingScript = document.querySelector(`script[src^="https://meet-nso.diq.geoiq.ai/external_api.js"]`);
+
+    // Remove the old script to ensure the new one loads
+    if (existingScript) {
+        existingScript.remove();
     }
+
+    const script = document.createElement('script');
+    script.src = jitsiScriptUrl;
+    script.async = true;
+    script.onload = initializeJitsi;
+    script.onerror = () => console.error('Failed to load Jitsi External API script.');
+    document.head.appendChild(script);
   };
 
   useEffect(() => {
