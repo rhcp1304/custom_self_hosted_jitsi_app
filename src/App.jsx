@@ -551,20 +551,18 @@ function App() {
 
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
           <div className="flex items-center gap-2 w-full md:w-auto">
-            {/* Conditional styling for input box background */}
             <input
               type="text"
               placeholder="Paste YouTube URL..."
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              className={`flex-1 min-w-0 px-4 py-2 rounded-lg bg-amber-300 text-sm text-black-900 placeholder-gray-900/70 border border-black-600 focus:border-black-700 focus:ring-1 focus:ring-black-700 transition-colors`}
+              className={`flex-1 min-w-0 px-4 py-2 rounded-lg bg-amber-600 text-sm text-gray-900 placeholder-gray-900/70 border border-amber-600 focus:border-amber-700 focus:ring-1 focus:ring-amber-700 transition-colors`}
               onKeyPress={(e) => { if (e.key === 'Enter') shareVideoDirectly(); }}
               disabled={isInitializing || isLoadingVideoTitle}
             />
             {!isVideoSharing ? (
               <Button
                 onClick={shareVideoDirectly}
-                // Conditional styling for the Share button background
                 className={`${videoUrl.trim() ? 'bg-amber-500 hover:bg-amber-600' : 'bg-amber-600 cursor-not-allowed'} transition-colors text-gray-900`}
                 disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}
               >
