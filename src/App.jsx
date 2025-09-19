@@ -541,7 +541,7 @@ function App() {
       {/* Header with a dark background to match the main container */}
       <header className="bg-green-900 p-4 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
         <div className="flex items-center justify-between w-full md:w-auto mb-4 md:mb-0">
-          <img src={LenskartLogo} alt="Lenskart Logo" className="h-12 w-24" />
+{/*           <img src={LenskartLogo} alt="Lenskart Logo" className="h-12 w-24" /> */}
           <div className="flex items-center md:hidden gap-2">
             <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:text-white" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
