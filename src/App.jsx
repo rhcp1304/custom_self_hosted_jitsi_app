@@ -543,10 +543,10 @@ function App() {
         <div className="flex items-center justify-between w-full md:w-auto mb-2 md:mb-0">
 {/*           <img src={LenskartLogo} alt="Lenskart Logo" className="h-10 w-auto" /> */}
           <div className="flex items-center md:hidden gap-2">
-            <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:text-white" title={`Videos (${playlist.length})`}>
+            <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
-            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-red-900 hover:text-red-800" title="Show Map">
+            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
             </Button>
           </div>
@@ -581,10 +581,10 @@ function App() {
             </Button>
           </div>
           <div className="hidden md:flex items-center gap-2">
-            <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:bg-green-700 hover:text-white" title={`Videos (${playlist.length})`}>
+            <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
-            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-red-900 hover:bg-green-700 hover:text-red-800" title="Show Map">
+            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
             </Button>
           </div>
