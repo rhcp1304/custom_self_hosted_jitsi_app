@@ -565,7 +565,7 @@ function App() {
               <Button
                 onClick={shareVideoDirectly}
                 // Conditional styling for the Share button background
-                className={`${videoUrl.trim() ? 'bg-amber-500 hover:bg-amber-600' : 'bg-amber-600 cursor-not-allowed'} transition-colors text-gray-900`}
+                className={`${videoUrl.trim() ? 'bg-amber-900 hover:bg-amber-600' : 'bg-amber-600 cursor-not-allowed'} transition-colors text-gray-900`}
                 disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}
               >
                 Share
