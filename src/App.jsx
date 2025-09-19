@@ -554,19 +554,19 @@ function App() {
 
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
           <div className="flex items-center gap-2 w-full md:w-auto">
-            {/* Input field with black background */}
+            {/* Input field with dark green background */}
             <input
               type="text"
               placeholder="Paste YouTube URL..."
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-black text-sm placeholder-gray-400 border border-green-600 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 transition-colors"
+              className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-green-800 text-sm placeholder-gray-400 border border-green-600 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 transition-colors"
               onKeyPress={(e) => { if (e.key === 'Enter') shareVideoDirectly(); }}
               disabled={isInitializing || isLoadingVideoTitle}
             />
             {!isVideoSharing ? (
-              // Black for the primary action button
-              <Button onClick={shareVideoDirectly} className="bg-black hover:bg-gray-900 transition-colors text-white" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+              // Amber for the primary action button
+              <Button onClick={shareVideoDirectly} className="bg-amber-500 hover:bg-amber-600 transition-colors text-white" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
                 Share
               </Button>
             ) : (
@@ -575,8 +575,8 @@ function App() {
                 Stop
               </Button>
             )}
-            {/* Black for the secondary action button */}
-            <Button onClick={addToPlaylist} className="bg-black hover:bg-gray-900 text-white transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+            {/* Amber for the secondary action button */}
+            <Button onClick={addToPlaylist} className="bg-amber-500 hover:bg-amber-600 text-white transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
               {isLoadingVideoTitle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </Button>
           </div>
