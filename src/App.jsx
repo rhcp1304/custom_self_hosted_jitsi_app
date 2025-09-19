@@ -29,7 +29,6 @@ function App() {
   // New state variables for video timeline
   const [videoTimeline, setVideoTimeline] = useState(0);
   const timelineIntervalRef = useRef(null);
-  const [totalVideoDuration, setTotalVideoDuration] = useState(0);
 
   const jitsiContainerRef = useRef(null);
   const [jitsiApi, setJitsiApi] = useState(null);
@@ -56,26 +55,6 @@ function App() {
       console.error('Error fetching video title:', error);
     }
     return 'Unknown Video';
-  };
-
-  // New function to fetch video duration
-  const fetchYouTubeVideoDuration = async (videoUrl) => {
-      try {
-        const videoId = extractYouTubeVideoId(videoUrl);
-        if (!videoId) return 0;
-
-        const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(videoUrl)}&format=json`);
-        if (response.ok) {
-          const data = await response.json();
-          // The oEmbed API doesn't provide duration. This is a placeholder
-          // for a more robust solution that would use the YouTube Data API.
-          // For now, we will assume a fixed duration or display only current time.
-          return 0;
-        }
-      } catch (error) {
-        console.error('Error fetching video duration:', error);
-      }
-      return 0;
   };
 
   const storePlaylistLocally = (playlistData) => {
@@ -129,12 +108,16 @@ function App() {
       if (typeof messageData === 'string') {
         if (messageData.startsWith('[PLAYLIST_SYNC]')) {
           message = JSON.parse(messageData.replace('[PLAYLIST_SYNC]', '').trim());
+        } else if (messageData.startsWith('[VIDEO_TIMELINE]')) {
+          message = JSON.parse(messageData.replace('[VIDEO_TIMELINE]', '').trim());
         } else {
           message = JSON.parse(messageData);
         }
       } else if (messageData.data) {
         if (messageData.data.startsWith('[PLAYLIST_SYNC]')) {
           message = JSON.parse(messageData.data.replace('[PLAYLIST_SYNC]', '').trim());
+        } else if (messageData.data.startsWith('[VIDEO_TIMELINE]')) {
+          message = JSON.parse(messageData.data.replace('[VIDEO_TIMELINE]', '').trim());
         } else {
           message = JSON.parse(messageData.data);
         }
@@ -174,6 +157,8 @@ function App() {
         }
         setIsPlaylistSynced(true);
         setSyncStatus('connected');
+      } else if (message.command === 'video_timeline_update') {
+          setVideoTimeline(message.time);
       }
 
     } catch (error) {
@@ -319,43 +304,9 @@ function App() {
               }, 1000);
           });
 
-          // Added listener for endpointTextMessageReceived to handle timeline updates
-          api.addEventListener('endpointTextMessageReceived', (event) => {
-              try {
-                  const data = JSON.parse(event.data);
-                  if (data.command === 'video_timeline_update') {
-                      setVideoTimeline(data.time);
-                  }
-              } catch (error) {
-                  // Fallback for chat messages
-                  try {
-                      const chatMessage = event.data || event.message;
-                      if (chatMessage && chatMessage.startsWith('[VIDEO_TIMELINE]')) {
-                          const data = JSON.parse(chatMessage.replace('[VIDEO_TIMELINE]', '').trim());
-                          if (data.command === 'video_timeline_update') {
-                              setVideoTimeline(data.time);
-                          }
-                      }
-                  } catch (e) {
-                      console.error('Error handling incoming message:', e);
-                  }
-              }
-              handleIncomingMessage(event);
-          });
-
+          api.addEventListener('endpointTextMessageReceived', (event) => handleIncomingMessage(event));
           api.addEventListener('incomingMessage', (event) => {
-               // This listener handles the chat-based messages.
-              try {
-                  if (event.message && event.message.includes('[VIDEO_TIMELINE]')) {
-                      const data = JSON.parse(event.message.replace('[VIDEO_TIMELINE]', '').trim());
-                      if (data.command === 'video_timeline_update') {
-                          setVideoTimeline(data.time);
-                      }
-                  }
-              } catch (e) {
-                  console.error('Error parsing incoming chat message:', e);
-              }
-              if (event.message && event.message.includes('[PLAYLIST_SYNC]')) {
+              if (event.message && (event.message.includes('[PLAYLIST_SYNC]') || event.message.includes('[VIDEO_TIMELINE]'))) {
                   handleIncomingMessage(event.message);
               }
           });
@@ -363,6 +314,8 @@ function App() {
           // Added listener for `contentSharingParticipantsChanged` to handle the sender's logic
           api.addEventListener('contentSharingParticipantsChanged', (event) => {
               const isMe = event.sharingParticipantIds.includes(api.getParticipantInfo().id);
+              setIsVideoSharing(isMe); // This correctly updates the state for the UI element
+
               if (isMe) {
                   // Start broadcasting the video timeline
                   if (timelineIntervalRef.current) {
@@ -390,17 +343,15 @@ function App() {
               } else {
                   // Stop broadcasting
                   clearInterval(timelineIntervalRef.current);
+                  setVideoTimeline(0); // Reset the timeline
               }
-              setIsVideoSharing(isMe);
           });
 
           api.addEventListener('sharedVideoStarted', (event) => {
-              setIsVideoSharing(true);
               setCurrentSharedVideo(event.url);
               forceAudioMute();
           });
           api.addEventListener('sharedVideoStopped', (event) => {
-              setIsVideoSharing(false);
               setCurrentSharedVideo('');
               stopMutingInterval();
               setAudioMuted(false);
