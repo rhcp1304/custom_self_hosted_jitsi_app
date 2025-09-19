@@ -536,11 +536,10 @@ function App() {
   const filteredPlaylist = playlist.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    // Base container with a dark neon green background
     <div className="h-screen w-screen flex flex-col bg-green-950 text-white overflow-hidden">
-      {/* Header with reduced padding and the same color as the meeting container */}
       <header className="bg-green-900 px-4 py-2 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
         <div className="flex items-center justify-between w-full md:w-auto mb-2 md:mb-0">
+          <img src={LenskartLogo} alt="Lenskart Logo" className="h-10 w-auto" />
           <div className="flex items-center md:hidden gap-2">
             <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
@@ -553,6 +552,7 @@ function App() {
 
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
           <div className="flex items-center gap-2 w-full md:w-auto">
+            {/* Conditional styling for input box background */}
             <input
               type="text"
               placeholder="Paste YouTube URL..."
@@ -565,6 +565,7 @@ function App() {
             {!isVideoSharing ? (
               <Button
                 onClick={shareVideoDirectly}
+                // Conditional styling for the Share button background
                 className={`${videoUrl.trim() ? 'bg-amber-500 hover:bg-amber-600' : 'bg-amber-600 cursor-not-allowed'} transition-colors text-gray-900`}
                 disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}
               >
