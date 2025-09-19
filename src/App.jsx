@@ -541,7 +541,7 @@ function App() {
       {/* Header with reduced padding and the same color as the meeting container */}
       <header className="bg-green-900 px-4 py-2 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
         <div className="flex items-center justify-between w-full md:w-auto mb-2 md:mb-0">
-{/*           <img src={LenskartLogo} alt="Lenskart Logo" className="h-10 w-auto" /> */}
+          <img src={LenskartLogo} alt="Lenskart Logo" className="h-10 w-auto" />
           <div className="flex items-center md:hidden gap-2">
             <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
@@ -560,13 +560,14 @@ function App() {
               placeholder="Paste YouTube URL..."
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-amber-500 text-sm text-black placeholder-black/70 border border-amber-600 focus:border-amber-700 focus:ring-1 focus:ring-amber-700 transition-colors"
+              // Conditional styling for the input field background
+              className={`flex-1 min-w-0 px-4 py-2 rounded-lg ${videoUrl.trim() ? 'bg-amber-500' : 'bg-amber-600'} text-sm text-gray-900 placeholder-gray-900/70 border border-amber-600 focus:border-amber-700 focus:ring-1 focus:ring-amber-700 transition-colors`}
               onKeyPress={(e) => { if (e.key === 'Enter') shareVideoDirectly(); }}
               disabled={isInitializing || isLoadingVideoTitle}
             />
             {!isVideoSharing ? (
-              // Amber for the primary action button
-              <Button onClick={shareVideoDirectly} className="bg-amber-500 hover:bg-amber-600 transition-colors text-black" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+              // Conditional styling for the "Share" button background
+              <Button onClick={shareVideoDirectly} className={`${videoUrl.trim() ? 'bg-amber-500 hover:bg-amber-600' : 'bg-amber-600 cursor-not-allowed'} transition-colors text-gray-900`} disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
                 Share
               </Button>
             ) : (
@@ -576,7 +577,7 @@ function App() {
               </Button>
             )}
             {/* Amber for the secondary action button */}
-            <Button onClick={addToPlaylist} className="bg-amber-500 hover:bg-amber-600 text-black transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+            <Button onClick={addToPlaylist} className="bg-amber-500 hover:bg-amber-600 text-gray-900 transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
               {isLoadingVideoTitle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </Button>
           </div>
