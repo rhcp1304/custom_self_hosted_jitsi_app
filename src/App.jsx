@@ -245,7 +245,7 @@ function App() {
               configOverwrite: {
                   startWithAudioMuted: true,
                   startWithVideoMuted: true,
-                  prejoinPageEnabled: true,
+                  prejoinPageEnabled: false,
                   enableWelcomePage: false,
                   enableClosePage: false,
                   channelLastN: -1,
