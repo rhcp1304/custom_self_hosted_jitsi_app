@@ -538,15 +538,15 @@ function App() {
   return (
     // Base container with a dark neon green background
     <div className="h-screen w-screen flex flex-col bg-green-950 text-white overflow-hidden">
-      {/* Header with a dark background to match the main container */}
-      <header className="bg-green-900 p-4 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
-        <div className="flex items-center justify-between w-full md:w-auto mb-4 md:mb-0">
-{/*           <img src={LenskartLogo} alt="Lenskart Logo" className="h-12 w-24" /> */}
+      {/* Header with reduced padding and the same color as the meeting container */}
+      <header className="bg-green-900 px-4 py-2 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
+        <div className="flex items-center justify-between w-full md:w-auto mb-2 md:mb-0">
+{/*           <img src={LenskartLogo} alt="Lenskart Logo" className="h-10 w-auto" /> */}
           <div className="flex items-center md:hidden gap-2">
             <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:text-white" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
-            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-gray-400 hover:text-white" title="Show Map">
+            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-red-900 hover:text-red-800" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
             </Button>
           </div>
@@ -554,13 +554,13 @@ function App() {
 
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
           <div className="flex items-center gap-2 w-full md:w-auto">
-            {/* Input field with lime focus */}
+            {/* Input field with black background */}
             <input
               type="text"
               placeholder="Paste YouTube URL..."
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-green-700 text-sm placeholder-gray-300 border border-green-600 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 transition-colors"
+              className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-black text-sm placeholder-gray-400 border border-green-600 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 transition-colors"
               onKeyPress={(e) => { if (e.key === 'Enter') shareVideoDirectly(); }}
               disabled={isInitializing || isLoadingVideoTitle}
             />
@@ -584,15 +584,15 @@ function App() {
             <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:bg-green-700 hover:text-white" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
-            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-gray-400 hover:bg-green-700 hover:text-white" title="Show Map">
+            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-red-900 hover:bg-green-700 hover:text-red-800" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area with a subtle background change */}
-      <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-950 p-4 md:p-8">
+      {/* Main Content Area with a single background color */}
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
         {/* Jitsi Container */}
         <div className="w-full h-full bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl">
           {isInitializing && (
