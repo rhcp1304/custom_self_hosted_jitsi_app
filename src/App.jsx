@@ -538,7 +538,7 @@ function App() {
   return (
     // Base container with a dark background
     <div className="h-screen w-screen flex flex-col bg-slate-950 text-white overflow-hidden">
-      {/* Header with a dark background */}
+      {/* Header with a dark background to match the main container */}
       <header className="bg-slate-900 p-4 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
         <div className="flex items-center justify-between w-full md:w-auto mb-4 md:mb-0">
           <img src={LenskartLogo} alt="Lenskart Logo" className="h-12 w-24" />
@@ -554,29 +554,29 @@ function App() {
 
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
           <div className="flex items-center gap-2 w-full md:w-auto">
-            {/* Input field with orange focus */}
+            {/* Input field with fuchsia focus */}
             <input
               type="text"
               placeholder="Paste YouTube URL..."
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-slate-700 text-sm placeholder-gray-400 border border-slate-600 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+              className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-slate-700 text-sm placeholder-gray-400 border border-slate-600 focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 transition-colors"
               onKeyPress={(e) => { if (e.key === 'Enter') shareVideoDirectly(); }}
               disabled={isInitializing || isLoadingVideoTitle}
             />
             {!isVideoSharing ? (
-              // Orange for the Share button
-              <Button onClick={shareVideoDirectly} className="bg-orange-500 hover:bg-orange-600 transition-colors text-white" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+              // Fuchsia for the primary action button
+              <Button onClick={shareVideoDirectly} className="bg-fuchsia-600 hover:bg-fuchsia-700 transition-colors text-white" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
                 Share
               </Button>
             ) : (
-              // Red for the Stop button
+              // Red for the "destructive" stop action
               <Button onClick={stopVideoSharing} className="bg-rose-600 hover:bg-rose-700 transition-colors text-white" disabled={isInitializing}>
                 Stop
               </Button>
             )}
-            {/* Orange for the Add button */}
-            <Button onClick={addToPlaylist} className="bg-orange-500 hover:bg-orange-600 text-white transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+            {/* Fuchsia for the secondary action button */}
+            <Button onClick={addToPlaylist} className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
               {isLoadingVideoTitle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </Button>
           </div>
@@ -591,7 +591,7 @@ function App() {
         </div>
       </header>
 
-      {/* Main Content Area - dark and clean */}
+      {/* Main Content Area with a subtle background change */}
       <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-slate-950 p-4 md:p-8">
         {/* Jitsi Container */}
         <div className="w-full h-full bg-slate-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl">
@@ -629,7 +629,7 @@ function App() {
                       placeholder="Search videos..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-48 px-3 py-1 rounded-lg bg-slate-700 text-sm placeholder-gray-400 border border-slate-600 focus:border-orange-500 focus:outline-none pl-8"
+                      className="w-48 px-3 py-1 rounded-lg bg-slate-700 text-sm placeholder-gray-400 border border-slate-600 focus:border-fuchsia-500 focus:outline-none pl-8"
                     />
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   </div>
@@ -649,8 +649,8 @@ function App() {
                           bg-slate-700/50 rounded-xl p-3 shadow-md
                           flex items-center gap-4 cursor-grab
                           active:cursor-grabbing transform transition-all duration-150
-                          ${draggedItem?.id === video.id ? 'opacity-50 scale-95 ring-2 ring-orange-500' : ''}
-                          ${currentSharedVideo === video.url ? 'border-l-4 border-orange-500' : 'border-l-4 border-transparent'}
+                          ${draggedItem?.id === video.id ? 'opacity-50 scale-95 ring-2 ring-fuchsia-500' : ''}
+                          ${currentSharedVideo === video.url ? 'border-l-4 border-fuchsia-500' : 'border-l-4 border-transparent'}
                         `}
                         draggable
                         onDragStart={(e) => handleDragStart(e, video)}
@@ -667,8 +667,8 @@ function App() {
                               <X className="w-4 h-4" />
                             </Button>
                           ) : (
-                            // Orange for the play button
-                            <Button onClick={() => handleShareVideo(video.url)} variant="ghost" size="icon" className="text-orange-500 hover:bg-orange-500/20" title="Play this video now" disabled={isInitializing}>
+                            // Cyan for the play button
+                            <Button onClick={() => handleShareVideo(video.url)} variant="ghost" size="icon" className="text-cyan-400 hover:bg-cyan-400/20" title="Play this video now" disabled={isInitializing}>
                               <Play className="w-4 h-4" />
                             </Button>
                           )}
@@ -704,7 +704,7 @@ function App() {
           <div className="bg-slate-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-slate-700">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center">
-                <AlertCircle className="w-6 h-6 text-orange-500 mr-3" />
+                <AlertCircle className="w-6 h-6 text-fuchsia-500 mr-3" />
                 <h2 className="text-white text-xl font-semibold">Error</h2>
               </div>
               <Button onClick={() => setShowErrorModal(false)} variant="ghost" size="icon" className="text-gray-400 hover:bg-slate-700">
@@ -715,7 +715,7 @@ function App() {
               {errorMessage}
             </p>
             <div className="mt-6 flex justify-end">
-              <Button onClick={() => setShowErrorModal(false)} className="bg-orange-500 hover:bg-orange-600 text-white">
+              <Button onClick={() => setShowErrorModal(false)} className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white">
                 Close
               </Button>
             </div>
