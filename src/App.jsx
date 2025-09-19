@@ -536,10 +536,10 @@ function App() {
   const filteredPlaylist = playlist.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    // Base container with a dark background
-    <div className="h-screen w-screen flex flex-col bg-slate-950 text-white overflow-hidden">
+    // Base container with a dark neon green background
+    <div className="h-screen w-screen flex flex-col bg-green-950 text-white overflow-hidden">
       {/* Header with a dark background to match the main container */}
-      <header className="bg-slate-900 p-4 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
+      <header className="bg-green-900 p-4 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
         <div className="flex items-center justify-between w-full md:w-auto mb-4 md:mb-0">
           <img src={LenskartLogo} alt="Lenskart Logo" className="h-12 w-24" />
           <div className="flex items-center md:hidden gap-2">
@@ -554,19 +554,19 @@ function App() {
 
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
           <div className="flex items-center gap-2 w-full md:w-auto">
-            {/* Input field with fuchsia focus */}
+            {/* Input field with lime focus */}
             <input
               type="text"
               placeholder="Paste YouTube URL..."
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-slate-700 text-sm placeholder-gray-400 border border-slate-600 focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 transition-colors"
+              className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-green-700 text-sm placeholder-gray-300 border border-green-600 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 transition-colors"
               onKeyPress={(e) => { if (e.key === 'Enter') shareVideoDirectly(); }}
               disabled={isInitializing || isLoadingVideoTitle}
             />
             {!isVideoSharing ? (
-              // Fuchsia for the primary action button
-              <Button onClick={shareVideoDirectly} className="bg-fuchsia-600 hover:bg-fuchsia-700 transition-colors text-white" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+              // Lime for the primary action button
+              <Button onClick={shareVideoDirectly} className="bg-lime-600 hover:bg-lime-700 transition-colors text-white" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
                 Share
               </Button>
             ) : (
@@ -575,16 +575,16 @@ function App() {
                 Stop
               </Button>
             )}
-            {/* Fuchsia for the secondary action button */}
-            <Button onClick={addToPlaylist} className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+            {/* Lime for the secondary action button */}
+            <Button onClick={addToPlaylist} className="bg-lime-600 hover:bg-lime-700 text-white transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
               {isLoadingVideoTitle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </Button>
           </div>
           <div className="hidden md:flex items-center gap-2">
-            <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:bg-slate-700 hover:text-white" title={`Videos (${playlist.length})`}>
+            <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:bg-green-700 hover:text-white" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
-            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-gray-400 hover:bg-slate-700 hover:text-white" title="Show Map">
+            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-gray-400 hover:bg-green-700 hover:text-white" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
             </Button>
           </div>
@@ -592,11 +592,11 @@ function App() {
       </header>
 
       {/* Main Content Area with a subtle background change */}
-      <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-slate-950 p-4 md:p-8">
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-950 p-4 md:p-8">
         {/* Jitsi Container */}
-        <div className="w-full h-full bg-slate-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl">
+        <div className="w-full h-full bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl">
           {isInitializing && (
-            <div className="w-full h-full flex items-center justify-center bg-slate-950">
+            <div className="w-full h-full flex items-center justify-center bg-green-950">
               <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin text-white mx-auto mb-4" />
                 <p className="text-xl font-medium">Initializing meeting...</p>
@@ -617,11 +617,11 @@ function App() {
 
         {/* Panels Container */}
         {(showPlaylist || showMap) && (
-          <div className="fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 bg-slate-800 border-t md:border-l border-slate-700 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out">
+          <div className="fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 bg-green-800 border-t md:border-l border-green-700 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out">
             {/* Playlist Panel */}
             {showPlaylist && (
               <div className="flex flex-col h-full">
-                <div className="bg-slate-900 p-4 flex items-center justify-between border-b border-slate-700 flex-shrink-0">
+                <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
                   <h2 className="text-lg font-semibold">Video Playlist ({playlist.length})</h2>
                   <div className="relative">
                     <input
@@ -629,9 +629,9 @@ function App() {
                       placeholder="Search videos..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-48 px-3 py-1 rounded-lg bg-slate-700 text-sm placeholder-gray-400 border border-slate-600 focus:border-fuchsia-500 focus:outline-none pl-8"
+                      className="w-48 px-3 py-1 rounded-lg bg-green-700 text-sm placeholder-gray-300 border border-green-600 focus:border-lime-500 focus:outline-none pl-8"
                     />
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
@@ -646,11 +646,11 @@ function App() {
                       <div
                         key={video.id}
                         className={`
-                          bg-slate-700/50 rounded-xl p-3 shadow-md
+                          bg-green-700/50 rounded-xl p-3 shadow-md
                           flex items-center gap-4 cursor-grab
                           active:cursor-grabbing transform transition-all duration-150
-                          ${draggedItem?.id === video.id ? 'opacity-50 scale-95 ring-2 ring-fuchsia-500' : ''}
-                          ${currentSharedVideo === video.url ? 'border-l-4 border-fuchsia-500' : 'border-l-4 border-transparent'}
+                          ${draggedItem?.id === video.id ? 'opacity-50 scale-95 ring-2 ring-lime-500' : ''}
+                          ${currentSharedVideo === video.url ? 'border-l-4 border-lime-500' : 'border-l-4 border-transparent'}
                         `}
                         draggable
                         onDragStart={(e) => handleDragStart(e, video)}
@@ -667,8 +667,8 @@ function App() {
                               <X className="w-4 h-4" />
                             </Button>
                           ) : (
-                            // Cyan for the play button
-                            <Button onClick={() => handleShareVideo(video.url)} variant="ghost" size="icon" className="text-cyan-400 hover:bg-cyan-400/20" title="Play this video now" disabled={isInitializing}>
+                            // Emerald for the play button
+                            <Button onClick={() => handleShareVideo(video.url)} variant="ghost" size="icon" className="text-emerald-400 hover:bg-emerald-400/20" title="Play this video now" disabled={isInitializing}>
                               <Play className="w-4 h-4" />
                             </Button>
                           )}
@@ -686,7 +686,7 @@ function App() {
             {/* Map Panel */}
             {showMap && (
               <div className="flex flex-col h-full">
-                <div className="bg-slate-900 p-4 flex items-center justify-between border-b border-slate-700 flex-shrink-0">
+                <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
                   <h2 className="text-lg font-semibold">Map Services</h2>
                 </div>
                 <div className="flex-1 min-h-0">
@@ -700,14 +700,14 @@ function App() {
 
       {/* Custom Error Modal */}
       {showErrorModal && (
-        <div className="fixed inset-0 bg-slate-950/75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-slate-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-slate-700">
+        <div className="fixed inset-0 bg-green-950/75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-green-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-green-700">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center">
-                <AlertCircle className="w-6 h-6 text-fuchsia-500 mr-3" />
+                <AlertCircle className="w-6 h-6 text-lime-500 mr-3" />
                 <h2 className="text-white text-xl font-semibold">Error</h2>
               </div>
-              <Button onClick={() => setShowErrorModal(false)} variant="ghost" size="icon" className="text-gray-400 hover:bg-slate-700">
+              <Button onClick={() => setShowErrorModal(false)} variant="ghost" size="icon" className="text-gray-400 hover:bg-green-700">
                 <X className="w-5 h-5" />
               </Button>
             </div>
@@ -715,7 +715,7 @@ function App() {
               {errorMessage}
             </p>
             <div className="mt-6 flex justify-end">
-              <Button onClick={() => setShowErrorModal(false)} className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white">
+              <Button onClick={() => setShowErrorModal(false)} className="bg-lime-600 hover:bg-lime-700 text-white">
                 Close
               </Button>
             </div>
