@@ -304,11 +304,11 @@ function App() {
               }, 1000);
           });
 
-          api.addEventListener('endpointTextMessageReceived', (event) => handleIncomingMessage(event));
+          api.addEventListener('endpointTextMessageReceived', (event) => {
+              handleIncomingMessage(event);
+          });
           api.addEventListener('incomingMessage', (event) => {
-              if (event.message && (event.message.includes('[PLAYLIST_SYNC]') || event.message.includes('[VIDEO_TIMELINE]'))) {
-                  handleIncomingMessage(event.message);
-              }
+              handleIncomingMessage(event);
           });
 
           // Added listener for `contentSharingParticipantsChanged` to handle the sender's logic
@@ -782,8 +782,7 @@ function App() {
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }
