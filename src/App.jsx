@@ -26,6 +26,11 @@ function App() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // New state variables for video timeline
+  const [videoTimeline, setVideoTimeline] = useState(0);
+  const timelineIntervalRef = useRef(null);
+  const [totalVideoDuration, setTotalVideoDuration] = useState(0);
+
   const jitsiContainerRef = useRef(null);
   const [jitsiApi, setJitsiApi] = useState(null);
   const syncIntervalRef = useRef(null);
@@ -51,6 +56,26 @@ function App() {
       console.error('Error fetching video title:', error);
     }
     return 'Unknown Video';
+  };
+
+  // New function to fetch video duration
+  const fetchYouTubeVideoDuration = async (videoUrl) => {
+      try {
+        const videoId = extractYouTubeVideoId(videoUrl);
+        if (!videoId) return 0;
+
+        const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(videoUrl)}&format=json`);
+        if (response.ok) {
+          const data = await response.json();
+          // The oEmbed API doesn't provide duration. This is a placeholder
+          // for a more robust solution that would use the YouTube Data API.
+          // For now, we will assume a fixed duration or display only current time.
+          return 0;
+        }
+      } catch (error) {
+        console.error('Error fetching video duration:', error);
+      }
+      return 0;
   };
 
   const storePlaylistLocally = (playlistData) => {
@@ -294,17 +319,84 @@ function App() {
               }, 1000);
           });
 
-          api.addEventListener('endpointTextMessageReceived', (event) => handleIncomingMessage(event));
+          // Added listener for endpointTextMessageReceived to handle timeline updates
+          api.addEventListener('endpointTextMessageReceived', (event) => {
+              try {
+                  const data = JSON.parse(event.data);
+                  if (data.command === 'video_timeline_update') {
+                      setVideoTimeline(data.time);
+                  }
+              } catch (error) {
+                  // Fallback for chat messages
+                  try {
+                      const chatMessage = event.data || event.message;
+                      if (chatMessage && chatMessage.startsWith('[VIDEO_TIMELINE]')) {
+                          const data = JSON.parse(chatMessage.replace('[VIDEO_TIMELINE]', '').trim());
+                          if (data.command === 'video_timeline_update') {
+                              setVideoTimeline(data.time);
+                          }
+                      }
+                  } catch (e) {
+                      console.error('Error handling incoming message:', e);
+                  }
+              }
+              handleIncomingMessage(event);
+          });
+
           api.addEventListener('incomingMessage', (event) => {
+               // This listener handles the chat-based messages.
+              try {
+                  if (event.message && event.message.includes('[VIDEO_TIMELINE]')) {
+                      const data = JSON.parse(event.message.replace('[VIDEO_TIMELINE]', '').trim());
+                      if (data.command === 'video_timeline_update') {
+                          setVideoTimeline(data.time);
+                      }
+                  }
+              } catch (e) {
+                  console.error('Error parsing incoming chat message:', e);
+              }
               if (event.message && event.message.includes('[PLAYLIST_SYNC]')) {
                   handleIncomingMessage(event.message);
               }
           });
+
+          // Added listener for `contentSharingParticipantsChanged` to handle the sender's logic
+          api.addEventListener('contentSharingParticipantsChanged', (event) => {
+              const isMe = event.sharingParticipantIds.includes(api.getParticipantInfo().id);
+              if (isMe) {
+                  // Start broadcasting the video timeline
+                  if (timelineIntervalRef.current) {
+                      clearInterval(timelineIntervalRef.current);
+                  }
+                  timelineIntervalRef.current = setInterval(() => {
+                      // This is a placeholder. A real implementation would get
+                      // the current time from the shared video player.
+                      const currentTime = Math.floor(Date.now() / 1000);
+
+                      // Using both data channel and chat for reliability
+                      try {
+                          api.executeCommand('sendEndpointTextMessage', 'everyone', JSON.stringify({
+                              command: 'video_timeline_update',
+                              time: currentTime
+                          }));
+                      } catch (e) {
+                          console.log('Data channel failed, falling back to chat');
+                          api.executeCommand('sendChatMessage', `[VIDEO_TIMELINE]${JSON.stringify({
+                              command: 'video_timeline_update',
+                              time: currentTime
+                          })}`);
+                      }
+                  }, 1000); // Send update every second
+              } else {
+                  // Stop broadcasting
+                  clearInterval(timelineIntervalRef.current);
+              }
+              setIsVideoSharing(isMe);
+          });
+
           api.addEventListener('sharedVideoStarted', (event) => {
               setIsVideoSharing(true);
               setCurrentSharedVideo(event.url);
-              // This command forces the local player to be muted.
-              // It does not affect other participants' players.
               forceAudioMute();
           });
           api.addEventListener('sharedVideoStopped', (event) => {
@@ -339,6 +431,10 @@ function App() {
     if (syncIntervalRef.current) {
       clearInterval(syncIntervalRef.current);
       syncIntervalRef.current = null;
+    }
+    if (timelineIntervalRef.current) {
+      clearInterval(timelineIntervalRef.current);
+      timelineIntervalRef.current = null;
     }
     if (jitsiApi) {
       try { jitsiApi.dispose(); } catch (error) { console.error('Error disposing Jitsi API:', error); }
@@ -535,6 +631,13 @@ function App() {
   const handleDragEnd = () => setDraggedItem(null);
   const filteredPlaylist = playlist.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
+  // New function to format time
+  const formatTime = (timeInSeconds) => {
+      const minutes = Math.floor(timeInSeconds / 60);
+      const seconds = Math.floor(timeInSeconds % 60);
+      return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-950 text-white overflow-hidden">
       {/* Header */}
@@ -614,6 +717,14 @@ function App() {
               display: isInitializing ? 'none' : 'block',
             }}
           />
+          {/* New UI element to show video timeline */}
+          {isVideoSharing && (
+              <div
+                  className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-gray-900/80 text-white text-sm font-mono shadow-lg transition-all duration-300 z-10"
+              >
+                  Video Progress: {formatTime(videoTimeline)}
+              </div>
+          )}
         </div>
 
         {/* Panels Container */}
