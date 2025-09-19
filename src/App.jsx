@@ -26,6 +26,11 @@ function App() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // New state variables for video timeline
+  const [videoTimeline, setVideoTimeline] = useState(0);
+  const [isTimelineRunning, setIsTimelineRunning] = useState(false);
+  const timelineIntervalRef = useRef(null);
+
   const jitsiContainerRef = useRef(null);
   const [jitsiApi, setJitsiApi] = useState(null);
   const syncIntervalRef = useRef(null);
@@ -104,12 +109,20 @@ function App() {
       if (typeof messageData === 'string') {
         if (messageData.startsWith('[PLAYLIST_SYNC]')) {
           message = JSON.parse(messageData.replace('[PLAYLIST_SYNC]', '').trim());
+        } else if (messageData.startsWith('[VIDEO_TIMELINE]')) {
+          message = JSON.parse(messageData.replace('[VIDEO_TIMELINE]', '').trim());
+        } else if (messageData.startsWith('[MAP_SYNC]')) {
+          message = JSON.parse(messageData.replace('[MAP_SYNC]', '').trim());
         } else {
           message = JSON.parse(messageData);
         }
       } else if (messageData.data) {
         if (messageData.data.startsWith('[PLAYLIST_SYNC]')) {
           message = JSON.parse(messageData.data.replace('[PLAYLIST_SYNC]', '').trim());
+        } else if (messageData.data.startsWith('[VIDEO_TIMELINE]')) {
+          message = JSON.parse(messageData.data.replace('[VIDEO_TIMELINE]', '').trim());
+        } else if (messageData.data.startsWith('[MAP_SYNC]')) {
+          message = JSON.parse(messageData.data.replace('[MAP_SYNC]', '').trim());
         } else {
           message = JSON.parse(messageData.data);
         }
@@ -144,11 +157,24 @@ function App() {
             break;
           case 'REORDER':
             setPlaylist(message.data);
-            storePlaylistLocally(message.data);
+            storePlaylistLocally(newPlaylist);
             break;
         }
         setIsPlaylistSynced(true);
         setSyncStatus('connected');
+      } else if (message.command === 'video_timeline_update') {
+          setVideoTimeline(message.time);
+      } else if (message.command === 'start_timeline_timer') {
+          setIsTimelineRunning(true);
+          setVideoTimeline(0); // Reset for new video
+      } else if (message.command === 'stop_timeline_timer') {
+          setIsTimelineRunning(false);
+          setVideoTimeline(0);
+      } else if (message.command === 'show_map') {
+          setShowMap(true);
+          setShowPlaylist(false);
+      } else if (message.command === 'hide_map') {
+          setShowMap(false);
       }
 
     } catch (error) {
@@ -294,21 +320,55 @@ function App() {
               }, 1000);
           });
 
-          api.addEventListener('endpointTextMessageReceived', (event) => handleIncomingMessage(event));
+          api.addEventListener('endpointTextMessageReceived', (event) => {
+              handleIncomingMessage(event);
+          });
           api.addEventListener('incomingMessage', (event) => {
-              if (event.message && event.message.includes('[PLAYLIST_SYNC]')) {
-                  handleIncomingMessage(event.message);
+              handleIncomingMessage(event);
+          });
+
+          // Updated listener for `contentSharingParticipantsChanged` to handle the sender's logic
+          api.addEventListener('contentSharingParticipantsChanged', (event) => {
+              const isMe = event.sharingParticipantIds.includes(api.getParticipantInfo().id);
+              setIsVideoSharing(isMe); // This correctly updates the state for the UI element
+
+              // New logic for the timeline timer
+              if (isMe) {
+                  // Broadcaster's side: tell everyone to start their timers
+                  try {
+                      api.executeCommand('sendEndpointTextMessage', 'everyone', JSON.stringify({
+                          command: 'start_timeline_timer',
+                          time: 0
+                      }));
+                  } catch (e) {
+                      api.executeCommand('sendChatMessage', `[VIDEO_TIMELINE]${JSON.stringify({
+                          command: 'start_timeline_timer',
+                          time: 0
+                      })}`);
+                  }
+              } else {
+                  // Viewer's side: broadcaster is no longer sharing
+                  // Broadcaster's side: video sharing has stopped
+                  // Tell everyone to stop their timers
+                  try {
+                      api.executeCommand('sendEndpointTextMessage', 'everyone', JSON.stringify({
+                          command: 'stop_timeline_timer',
+                          time: 0
+                      }));
+                  } catch (e) {
+                      api.executeCommand('sendChatMessage', `[VIDEO_TIMELINE]${JSON.stringify({
+                          command: 'stop_timeline_timer',
+                          time: 0
+                      })}`);
+                  }
               }
           });
+
           api.addEventListener('sharedVideoStarted', (event) => {
-              setIsVideoSharing(true);
               setCurrentSharedVideo(event.url);
-              // This command forces the local player to be muted.
-              // It does not affect other participants' players.
               forceAudioMute();
           });
           api.addEventListener('sharedVideoStopped', (event) => {
-              setIsVideoSharing(false);
               setCurrentSharedVideo('');
               stopMutingInterval();
               setAudioMuted(false);
@@ -339,6 +399,10 @@ function App() {
     if (syncIntervalRef.current) {
       clearInterval(syncIntervalRef.current);
       syncIntervalRef.current = null;
+    }
+    if (timelineIntervalRef.current) {
+      clearInterval(timelineIntervalRef.current);
+      timelineIntervalRef.current = null;
     }
     if (jitsiApi) {
       try { jitsiApi.dispose(); } catch (error) { console.error('Error disposing Jitsi API:', error); }
@@ -383,6 +447,27 @@ function App() {
     return () => { cleanupJitsi(); };
   }, []);
 
+  // New useEffect hook to handle the timeline timer
+  useEffect(() => {
+      if (isTimelineRunning) {
+          if (timelineIntervalRef.current) {
+              clearInterval(timelineIntervalRef.current);
+          }
+          timelineIntervalRef.current = setInterval(() => {
+              setVideoTimeline((prev) => prev + 1);
+          }, 1000);
+      } else {
+          if (timelineIntervalRef.current) {
+              clearInterval(timelineIntervalRef.current);
+          }
+      }
+      return () => {
+          if (timelineIntervalRef.current) {
+              clearInterval(timelineIntervalRef.current);
+          }
+      };
+  }, [isTimelineRunning]);
+
   useEffect(() => {
     if (!jitsiContainerRef.current) return;
     const observer = new MutationObserver((mutations) => {
@@ -400,10 +485,30 @@ function App() {
     return () => { observer.disconnect(); };
   }, [jitsiContainerRef]);
 
+  // Updated toggleMap function to send a command
   const toggleMap = () => {
-    setShowMap(!showMap);
-    if (showPlaylist) setShowPlaylist(false);
+    const newShowMapState = !showMap;
+    setShowMap(newShowMapState);
+    if (showPlaylist) {
+        setShowPlaylist(false);
+    }
+
+    if (jitsiApi) {
+        const command = newShowMapState ? 'show_map' : 'hide_map';
+        try {
+            jitsiApi.executeCommand('sendEndpointTextMessage', 'everyone', JSON.stringify({
+                command: command,
+                participantId: participantId
+            }));
+        } catch (e) {
+            jitsiApi.executeCommand('sendChatMessage', `[MAP_SYNC]${JSON.stringify({
+                command: command,
+                participantId: participantId
+            })}`);
+        }
+    }
   };
+
   const shareVideoDirectly = () => {
     if (jitsiApi && videoUrl) {
       try {
@@ -535,6 +640,13 @@ function App() {
   const handleDragEnd = () => setDraggedItem(null);
   const filteredPlaylist = playlist.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
+  // New function to format time
+  const formatTime = (timeInSeconds) => {
+      const minutes = Math.floor(timeInSeconds / 60);
+      const seconds = Math.floor(timeInSeconds % 60);
+      return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-950 text-white overflow-hidden">
       {/* Header */}
@@ -614,6 +726,14 @@ function App() {
               display: isInitializing ? 'none' : 'block',
             }}
           />
+          {/* New UI element to show video timeline */}
+          {isVideoSharing && (
+              <div
+                  className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-gray-900/80 text-white text-sm font-mono shadow-lg transition-all duration-300 z-10"
+              >
+                  Video Progress: {formatTime(videoTimeline)}
+              </div>
+          )}
         </div>
 
         {/* Panels Container */}
