@@ -553,29 +553,28 @@ function App() {
 
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
           <div className="flex items-center gap-2 w-full md:w-auto">
-            {/* Input field with dark green background */}
             <input
               type="text"
               placeholder="Paste YouTube URL..."
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              // Conditional styling for the input field background
               className={`flex-1 min-w-0 px-4 py-2 rounded-lg ${videoUrl.trim() ? 'bg-amber-500' : 'bg-amber-600'} text-sm text-gray-900 placeholder-gray-900/70 border border-amber-600 focus:border-amber-700 focus:ring-1 focus:ring-amber-700 transition-colors`}
               onKeyPress={(e) => { if (e.key === 'Enter') shareVideoDirectly(); }}
               disabled={isInitializing || isLoadingVideoTitle}
             />
             {!isVideoSharing ? (
-              // Conditional styling for the "Share" button background
-              <Button onClick={shareVideoDirectly} className={`${videoUrl.trim() ? 'bg-amber-500 hover:bg-amber-600' : 'bg-amber-600 cursor-not-allowed'} transition-colors text-gray-900`} disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+              <Button
+                onClick={shareVideoDirectly}
+                className={`${videoUrl.trim() ? 'bg-amber-500 hover:bg-amber-600' : 'bg-amber-600 cursor-not-allowed'} transition-colors text-gray-900`}
+                disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}
+              >
                 Share
               </Button>
             ) : (
-              // Red for the "destructive" stop action
               <Button onClick={stopVideoSharing} className="bg-rose-600 hover:bg-rose-700 transition-colors text-white" disabled={isInitializing}>
                 Stop
               </Button>
             )}
-            {/* Amber for the secondary action button */}
             <Button onClick={addToPlaylist} className="bg-amber-500 hover:bg-amber-600 text-gray-900 transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
               {isLoadingVideoTitle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </Button>
@@ -591,9 +590,7 @@ function App() {
         </div>
       </header>
 
-      {/* Main Content Area with a single background color */}
       <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
-        {/* Jitsi Container */}
         <div className="w-full h-full bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl">
           {isInitializing && (
             <div className="w-full h-full flex items-center justify-center bg-green-950">
@@ -615,10 +612,8 @@ function App() {
           />
         </div>
 
-        {/* Panels Container */}
         {(showPlaylist || showMap) && (
           <div className="fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 bg-green-800 border-t md:border-l border-green-700 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out">
-            {/* Playlist Panel */}
             {showPlaylist && (
               <div className="flex flex-col h-full">
                 <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
@@ -667,7 +662,6 @@ function App() {
                               <X className="w-4 h-4" />
                             </Button>
                           ) : (
-                            // Emerald for the play button
                             <Button onClick={() => handleShareVideo(video.url)} variant="ghost" size="icon" className="text-emerald-400 hover:bg-emerald-400/20" title="Play this video now" disabled={isInitializing}>
                               <Play className="w-4 h-4" />
                             </Button>
@@ -683,7 +677,6 @@ function App() {
               </div>
             )}
 
-            {/* Map Panel */}
             {showMap && (
               <div className="flex flex-col h-full">
                 <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
@@ -698,7 +691,6 @@ function App() {
         )}
       </div>
 
-      {/* Custom Error Modal */}
       {showErrorModal && (
         <div className="fixed inset-0 bg-green-950/75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
           <div className="bg-green-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-green-700">
