@@ -26,10 +26,6 @@ function App() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const [videoTimeline, setVideoTimeline] = useState(0);
-  const [isTimelineRunning, setIsTimelineRunning] = useState(false);
-  const timelineIntervalRef = useRef(null);
-
   const jitsiContainerRef = useRef(null);
   const [jitsiApi, setJitsiApi] = useState(null);
   const syncIntervalRef = useRef(null);
@@ -108,20 +104,12 @@ function App() {
       if (typeof messageData === 'string') {
         if (messageData.startsWith('[PLAYLIST_SYNC]')) {
           message = JSON.parse(messageData.replace('[PLAYLIST_SYNC]', '').trim());
-        } else if (messageData.startsWith('[VIDEO_TIMELINE]')) {
-          message = JSON.parse(messageData.replace('[VIDEO_TIMELINE]', '').trim());
-        } else if (messageData.startsWith('[MAP_SYNC]')) {
-          message = JSON.parse(messageData.replace('[MAP_SYNC]', '').trim());
         } else {
           message = JSON.parse(messageData);
         }
       } else if (messageData.data) {
         if (messageData.data.startsWith('[PLAYLIST_SYNC]')) {
           message = JSON.parse(messageData.data.replace('[PLAYLIST_SYNC]', '').trim());
-        } else if (messageData.data.startsWith('[VIDEO_TIMELINE]')) {
-          message = JSON.parse(messageData.data.replace('[VIDEO_TIMELINE]', '').trim());
-        } else if (messageData.data.startsWith('[MAP_SYNC]')) {
-          message = JSON.parse(messageData.data.replace('[MAP_SYNC]', '').trim());
         } else {
           message = JSON.parse(messageData.data);
         }
@@ -156,26 +144,11 @@ function App() {
             break;
           case 'REORDER':
             setPlaylist(message.data);
-            storePlaylistLocally(newPlaylist);
+            storePlaylistLocally(message.data);
             break;
         }
         setIsPlaylistSynced(true);
         setSyncStatus('connected');
-      } else if (message.command === 'video_timeline_update') {
-          setVideoTimeline(message.time);
-      } else if (message.command === 'start_timeline_timer') {
-          setVideoTimeline(0);
-          setIsTimelineRunning(true);
-      } else if (message.command === 'stop_timeline_timer') {
-          setIsTimelineRunning(false);
-          setVideoTimeline(0);
-      } else if (message.command === 'show_map') {
-          console.log("Received map synchronization command: show_map");
-          setShowMap(true);
-          setShowPlaylist(false);
-      } else if (message.command === 'hide_map') {
-          console.log("Received map synchronization command: hide_map");
-          setShowMap(false);
       }
 
     } catch (error) {
@@ -321,49 +294,21 @@ function App() {
               }, 1000);
           });
 
-          api.addEventListener('endpointTextMessageReceived', (event) => {
-              handleIncomingMessage(event);
-          });
+          api.addEventListener('endpointTextMessageReceived', (event) => handleIncomingMessage(event));
           api.addEventListener('incomingMessage', (event) => {
-              handleIncomingMessage(event);
-          });
-
-          api.addEventListener('contentSharingParticipantsChanged', (event) => {
-              const isMe = event.sharingParticipantIds.includes(api.getParticipantInfo().id);
-              setIsVideoSharing(isMe);
-
-              if (isMe) {
-                  try {
-                      api.executeCommand('sendEndpointTextMessage', 'everyone', JSON.stringify({
-                          command: 'start_timeline_timer',
-                          time: 0
-                      }));
-                  } catch (e) {
-                      api.executeCommand('sendChatMessage', `[VIDEO_TIMELINE]${JSON.stringify({
-                          command: 'start_timeline_timer',
-                          time: 0
-                      })}`);
-                  }
-              } else {
-                  try {
-                      api.executeCommand('sendEndpointTextMessage', 'everyone', JSON.stringify({
-                          command: 'stop_timeline_timer',
-                          time: 0
-                      }));
-                  } catch (e) {
-                      api.executeCommand('sendChatMessage', `[VIDEO_TIMELINE]${JSON.stringify({
-                          command: 'stop_timeline_timer',
-                          time: 0
-                      })}`);
-                  }
+              if (event.message && event.message.includes('[PLAYLIST_SYNC]')) {
+                  handleIncomingMessage(event.message);
               }
           });
-
           api.addEventListener('sharedVideoStarted', (event) => {
+              setIsVideoSharing(true);
               setCurrentSharedVideo(event.url);
+              // This command forces the local player to be muted.
+              // It does not affect other participants' players.
               forceAudioMute();
           });
           api.addEventListener('sharedVideoStopped', (event) => {
+              setIsVideoSharing(false);
               setCurrentSharedVideo('');
               stopMutingInterval();
               setAudioMuted(false);
@@ -395,10 +340,6 @@ function App() {
       clearInterval(syncIntervalRef.current);
       syncIntervalRef.current = null;
     }
-    if (timelineIntervalRef.current) {
-      clearInterval(timelineIntervalRef.current);
-      timelineIntervalRef.current = null;
-    }
     if (jitsiApi) {
       try { jitsiApi.dispose(); } catch (error) { console.error('Error disposing Jitsi API:', error); }
       setJitsiApi(null);
@@ -420,9 +361,11 @@ function App() {
   };
 
   const initializeJitsiOnLoad = () => {
+    // UPDATED LINE: Add a cache-busting query parameter
     const jitsiScriptUrl = `https://meet-nso.diq.geoiq.ai/external_api.js?v=${Date.now()}`;
     const existingScript = document.querySelector(`script[src^="https://meet-nso.diq.geoiq.ai/external_api.js"]`);
 
+    // Remove the old script to ensure the new one loads
     if (existingScript) {
         existingScript.remove();
     }
@@ -439,26 +382,6 @@ function App() {
     initializeJitsiOnLoad();
     return () => { cleanupJitsi(); };
   }, []);
-
-  useEffect(() => {
-      if (isTimelineRunning) {
-          if (timelineIntervalRef.current) {
-              clearInterval(timelineIntervalRef.current);
-          }
-          timelineIntervalRef.current = setInterval(() => {
-              setVideoTimeline((prev) => prev + 1);
-          }, 1000);
-      } else {
-          if (timelineIntervalRef.current) {
-              clearInterval(timelineIntervalRef.current);
-          }
-      }
-      return () => {
-          if (timelineIntervalRef.current) {
-              clearInterval(timelineIntervalRef.current);
-          }
-      };
-  }, [isTimelineRunning]);
 
   useEffect(() => {
     if (!jitsiContainerRef.current) return;
@@ -478,29 +401,9 @@ function App() {
   }, [jitsiContainerRef]);
 
   const toggleMap = () => {
-    const newShowMapState = !showMap;
-    setShowMap(newShowMapState);
-    if (showPlaylist) {
-        setShowPlaylist(false);
-    }
-
-    if (jitsiApi) {
-        console.log("Map state change initiated. Sending command...");
-        const command = newShowMapState ? 'show_map' : 'hide_map';
-        try {
-            jitsiApi.executeCommand('sendEndpointTextMessage', 'everyone', JSON.stringify({
-                command: command,
-                participantId: participantId
-            }));
-        } catch (e) {
-            jitsiApi.executeCommand('sendChatMessage', `[MAP_SYNC]${JSON.stringify({
-                command: command,
-                participantId: participantId
-            })}`);
-        }
-    }
+    setShowMap(!showMap);
+    if (showPlaylist) setShowPlaylist(false);
   };
-
   const shareVideoDirectly = () => {
     if (jitsiApi && videoUrl) {
       try {
@@ -632,15 +535,11 @@ function App() {
   const handleDragEnd = () => setDraggedItem(null);
   const filteredPlaylist = playlist.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  const formatTime = (timeInSeconds) => {
-      const minutes = Math.floor(timeInSeconds / 60);
-      const seconds = Math.floor(timeInSeconds % 60);
-      return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-  };
-
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-950 text-white overflow-hidden">
+      {/* Header */}
       <header className="bg-gray-900 p-4 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
+        {/* Title and Controls */}
         <div className="flex items-center justify-between w-full md:w-auto mb-4 md:mb-0">
           <img src={LenskartLogo} alt="Lenskart Logo" className="h-12 w-24" />
           <div className="flex items-center md:hidden gap-2">
@@ -652,6 +551,8 @@ function App() {
             </Button>
           </div>
         </div>
+
+        {/* Desktop Controls */}
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
           <div className="flex items-center gap-2 w-full md:w-auto">
             <input
@@ -659,11 +560,13 @@ function App() {
               placeholder="Paste YouTube URL..."
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
+              // Updated UI: Brighter background, placeholder, and white focus border
               className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-gray-700 text-sm placeholder-gray-400 border border-gray-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
               onKeyPress={(e) => { if (e.key === 'Enter') shareVideoDirectly(); }}
               disabled={isInitializing || isLoadingVideoTitle}
             />
             {!isVideoSharing ? (
+              // Updated UI: More vibrant blue for the Share button
               <Button onClick={shareVideoDirectly} className="bg-blue-600 hover:bg-blue-700 transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
                 Share
               </Button>
@@ -672,6 +575,7 @@ function App() {
                 Stop
               </Button>
             )}
+            {/* Updated UI: Plus button is now a vibrant green */}
             <Button onClick={addToPlaylist} className="bg-green-600 hover:bg-green-700 text-white transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
               {isLoadingVideoTitle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </Button>
@@ -680,13 +584,17 @@ function App() {
             <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-700 hover:text-white" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
+            {/* Updated UI: Map pin icon is now a vibrant red */}
             <Button onClick={toggleMap} variant="ghost" size="icon" className="text-red-500 hover:bg-gray-700 hover:text-red-400" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
             </Button>
           </div>
         </div>
       </header>
+
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col md:flex-row min-h-0 relative">
+        {/* Jitsi Container */}
         <div className="w-full h-full bg-black flex flex-col min-h-0 relative">
           {isInitializing && (
             <div className="w-full h-full flex items-center justify-center bg-gray-950">
@@ -706,16 +614,12 @@ function App() {
               display: isInitializing ? 'none' : 'block',
             }}
           />
-          {isVideoSharing && (
-              <div
-                  className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-gray-900/80 text-white text-sm font-mono shadow-lg transition-all duration-300 z-10"
-              >
-                  Video Progress: {formatTime(videoTimeline)}
-              </div>
-          )}
         </div>
+
+        {/* Panels Container */}
         {(showPlaylist || showMap) && (
           <div className="fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 bg-gray-800 border-t md:border-l border-gray-700 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out">
+            {/* Playlist Panel */}
             {showPlaylist && (
               <div className="flex flex-col h-full">
                 <div className="bg-gray-900 p-4 flex items-center justify-between border-b border-gray-700 flex-shrink-0">
@@ -778,19 +682,23 @@ function App() {
                 </div>
               </div>
             )}
+
+            {/* Map Panel */}
             {showMap && (
               <div className="flex flex-col h-full">
                 <div className="bg-gray-900 p-4 flex items-center justify-between border-b border-gray-700 flex-shrink-0">
                   <h2 className="text-lg font-semibold">Map Services</h2>
                 </div>
                 <div className="flex-1 min-h-0">
-                  <EnhancedFreeMap showMap={showMap} />
+                  <EnhancedFreeMap />
                 </div>
               </div>
             )}
           </div>
         )}
       </div>
+
+      {/* Custom Error Modal */}
       {showErrorModal && (
         <div className="fixed inset-0 bg-gray-950/75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
           <div className="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
