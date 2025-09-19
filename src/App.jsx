@@ -565,8 +565,8 @@ function App() {
               disabled={isInitializing || isLoadingVideoTitle}
             />
             {!isVideoSharing ? (
-              // Lime for the primary action button
-              <Button onClick={shareVideoDirectly} className="bg-lime-600 hover:bg-lime-700 transition-colors text-white" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+              // Black for the primary action button
+              <Button onClick={shareVideoDirectly} className="bg-black hover:bg-gray-900 transition-colors text-white" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
                 Share
               </Button>
             ) : (
@@ -575,8 +575,8 @@ function App() {
                 Stop
               </Button>
             )}
-            {/* Lime for the secondary action button */}
-            <Button onClick={addToPlaylist} className="bg-lime-600 hover:bg-lime-700 text-white transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+            {/* Black for the secondary action button */}
+            <Button onClick={addToPlaylist} className="bg-black hover:bg-gray-900 text-white transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
               {isLoadingVideoTitle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </Button>
           </div>
