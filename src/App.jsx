@@ -557,7 +557,7 @@ function App() {
               placeholder="Paste YouTube URL..."
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              className={`flex-1 min-w-0 px-4 py-2 rounded-lg ${videoUrl.trim() ? 'bg-amber-500' : 'bg-amber-600'} text-sm text-gray-900 placeholder-gray-900/70 border border-amber-600 focus:border-amber-700 focus:ring-1 focus:ring-amber-700 transition-colors`}
+              className={`flex-1 min-w-0 px-4 py-2 rounded-lg ${videoUrl.trim() ? 'bg-amber-500' : 'bg-amber-500'} text-sm text-gray-900 placeholder-gray-900/70 border border-amber-600 focus:border-amber-700 focus:ring-1 focus:ring-amber-700 transition-colors`}
               onKeyPress={(e) => { if (e.key === 'Enter') shareVideoDirectly(); }}
               disabled={isInitializing || isLoadingVideoTitle}
             />
