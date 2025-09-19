@@ -560,13 +560,13 @@ function App() {
               placeholder="Paste YouTube URL..."
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-green-800 text-sm placeholder-gray-400 border border-green-600 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 transition-colors"
+              className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-amber-500 text-sm text-black placeholder-black/70 border border-amber-600 focus:border-amber-700 focus:ring-1 focus:ring-amber-700 transition-colors"
               onKeyPress={(e) => { if (e.key === 'Enter') shareVideoDirectly(); }}
               disabled={isInitializing || isLoadingVideoTitle}
             />
             {!isVideoSharing ? (
               // Amber for the primary action button
-              <Button onClick={shareVideoDirectly} className="bg-amber-500 hover:bg-amber-600 transition-colors text-white" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+              <Button onClick={shareVideoDirectly} className="bg-amber-500 hover:bg-amber-600 transition-colors text-black" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
                 Share
               </Button>
             ) : (
@@ -576,7 +576,7 @@ function App() {
               </Button>
             )}
             {/* Amber for the secondary action button */}
-            <Button onClick={addToPlaylist} className="bg-amber-500 hover:bg-amber-600 text-white transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+            <Button onClick={addToPlaylist} className="bg-amber-500 hover:bg-amber-600 text-black transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
               {isLoadingVideoTitle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </Button>
           </div>
