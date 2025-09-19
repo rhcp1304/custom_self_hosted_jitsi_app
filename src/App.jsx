@@ -194,10 +194,10 @@ function App() {
       });
       const allVideos = jitsiVideoContainer.querySelectorAll('video');
       allVideos.forEach(element => {
-        if (!element.muted) {
-          element.muted = true;
-          element.volume = 0;
-        }
+          if (!element.muted) {
+              element.muted = true;
+              element.volume = 0;
+          }
       });
     } catch (error) {
       console.error('Error muting shared video:', error);
@@ -560,24 +560,23 @@ function App() {
               placeholder="Paste YouTube URL..."
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              // Updated: bg-slate-700 and focus:border-cyan-500
-              className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-slate-700 text-sm placeholder-gray-400 border border-slate-600 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
+              className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-slate-700 text-sm placeholder-gray-400 border border-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
               onKeyPress={(e) => { if (e.key === 'Enter') shareVideoDirectly(); }}
               disabled={isInitializing || isLoadingVideoTitle}
             />
             {!isVideoSharing ? (
-              // Updated: bg-cyan-500
-              <Button onClick={shareVideoDirectly} className="bg-cyan-500 hover:bg-cyan-600 transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+              // Changed Share button to indigo
+              <Button onClick={shareVideoDirectly} className="bg-indigo-600 hover:bg-indigo-700 transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
                 Share
               </Button>
             ) : (
-              // Updated: bg-rose-600
+              // Changed Stop button to rose
               <Button onClick={stopVideoSharing} className="bg-rose-600 hover:bg-rose-700 transition-colors" disabled={isInitializing}>
                 Stop
               </Button>
             )}
-            {/* Updated: bg-emerald-600 */}
-            <Button onClick={addToPlaylist} className="bg-emerald-600 hover:bg-emerald-700 text-white transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+            {/* Changed Add button to cyan */}
+            <Button onClick={addToPlaylist} className="bg-cyan-600 hover:bg-cyan-700 text-white transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
               {isLoadingVideoTitle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </Button>
           </div>
@@ -585,7 +584,6 @@ function App() {
             <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:bg-slate-700 hover:text-white" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
-            {/* Updated: text-rose-500 */}
             <Button onClick={toggleMap} variant="ghost" size="icon" className="text-rose-500 hover:bg-slate-700 hover:text-rose-400" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
             </Button>
@@ -594,11 +592,11 @@ function App() {
       </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col md:flex-row min-h-0 relative">
+      {/* Changed the main container's background to a vibrant green */}
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-500">
         {/* Jitsi Container */}
-        <div className="w-full h-full bg-black flex flex-col min-h-0 relative">
+        <div className="w-full h-full bg-slate-900 flex flex-col min-h-0 relative">
           {isInitializing && (
-            // Updated: bg-slate-950
             <div className="w-full h-full flex items-center justify-center bg-slate-950">
               <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin text-white mx-auto mb-4" />
@@ -620,22 +618,19 @@ function App() {
 
         {/* Panels Container */}
         {(showPlaylist || showMap) && (
-          // Updated: bg-slate-800
           <div className="fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 bg-slate-800 border-t md:border-l border-slate-700 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out">
             {/* Playlist Panel */}
             {showPlaylist && (
               <div className="flex flex-col h-full">
-                {/* Updated: bg-slate-900 and border-slate-700 */}
                 <div className="bg-slate-900 p-4 flex items-center justify-between border-b border-slate-700 flex-shrink-0">
                   <h2 className="text-lg font-semibold">Video Playlist ({playlist.length})</h2>
                   <div className="relative">
-                    {/* Updated: bg-slate-700, border-slate-600, focus:border-cyan-500 */}
                     <input
                       type="text"
                       placeholder="Search videos..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-48 px-3 py-1 rounded-lg bg-slate-700 text-sm placeholder-gray-400 border border-slate-600 focus:border-cyan-500 focus:outline-none pl-8"
+                      className="w-48 px-3 py-1 rounded-lg bg-slate-700 text-sm placeholder-gray-400 border border-slate-600 focus:border-indigo-500 focus:outline-none pl-8"
                     />
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   </div>
@@ -652,12 +647,11 @@ function App() {
                       <div
                         key={video.id}
                         className={`
-                          // Updated: bg-slate-700/50, ring-cyan-500, border-emerald-500
                           bg-slate-700/50 rounded-xl p-3 shadow-md
                           flex items-center gap-4 cursor-grab
                           active:cursor-grabbing transform transition-all duration-150
-                          ${draggedItem?.id === video.id ? 'opacity-50 scale-95 ring-2 ring-cyan-500' : ''}
-                          ${currentSharedVideo === video.url ? 'border-l-4 border-emerald-500' : 'border-l-4 border-transparent'}
+                          ${draggedItem?.id === video.id ? 'opacity-50 scale-95 ring-2 ring-indigo-500' : ''}
+                          ${currentSharedVideo === video.url ? 'border-l-4 border-cyan-500' : 'border-l-4 border-transparent'}
                         `}
                         draggable
                         onDragStart={(e) => handleDragStart(e, video)}
@@ -670,17 +664,14 @@ function App() {
                         </div>
                         <div className="flex-shrink-0 flex items-center gap-2 ml-4">
                           {currentSharedVideo === video.url ? (
-                            // Updated: text-rose-400
                             <Button onClick={stopVideoSharing} variant="ghost" size="icon" className="text-rose-400 hover:bg-rose-400/20" title="Stop this video" disabled={isInitializing}>
                               <X className="w-4 h-4" />
                             </Button>
                           ) : (
-                            // Updated: text-emerald-400
-                            <Button onClick={() => handleShareVideo(video.url)} variant="ghost" size="icon" className="text-emerald-400 hover:bg-emerald-400/20" title="Play this video now" disabled={isInitializing}>
+                            <Button onClick={() => handleShareVideo(video.url)} variant="ghost" size="icon" className="text-cyan-400 hover:bg-cyan-400/20" title="Play this video now" disabled={isInitializing}>
                               <Play className="w-4 h-4" />
                             </Button>
                           )}
-                          {/* Updated: text-rose-400 */}
                           <Button onClick={() => removeFromPlaylist(video.id)} variant="ghost" size="icon" className="text-rose-400 hover:bg-rose-400/20" title="Remove from playlist" disabled={isInitializing}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -695,7 +686,6 @@ function App() {
             {/* Map Panel */}
             {showMap && (
               <div className="flex flex-col h-full">
-                {/* Updated: bg-slate-900 and border-slate-700 */}
                 <div className="bg-slate-900 p-4 flex items-center justify-between border-b border-slate-700 flex-shrink-0">
                   <h2 className="text-lg font-semibold">Map Services</h2>
                 </div>
@@ -710,17 +700,13 @@ function App() {
 
       {/* Custom Error Modal */}
       {showErrorModal && (
-        // Updated: bg-slate-950/75
         <div className="fixed inset-0 bg-slate-950/75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          {/* Updated: bg-slate-800 and border-slate-700 */}
           <div className="bg-slate-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-slate-700">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center">
-                {/* Updated: text-rose-500 */}
                 <AlertCircle className="w-6 h-6 text-rose-500 mr-3" />
                 <h2 className="text-white text-xl font-semibold">Error</h2>
               </div>
-              {/* Updated: hover:bg-slate-700 */}
               <Button onClick={() => setShowErrorModal(false)} variant="ghost" size="icon" className="text-gray-400 hover:bg-slate-700">
                 <X className="w-5 h-5" />
               </Button>
@@ -729,7 +715,6 @@ function App() {
               {errorMessage}
             </p>
             <div className="mt-6 flex justify-end">
-              {/* Updated: bg-rose-600 */}
               <Button onClick={() => setShowErrorModal(false)} className="bg-rose-600 hover:bg-rose-700 text-white">
                 Close
               </Button>
