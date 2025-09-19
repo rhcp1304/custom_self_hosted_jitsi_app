@@ -784,7 +784,7 @@ function App() {
                   <h2 className="text-lg font-semibold">Map Services</h2>
                 </div>
                 <div className="flex-1 min-h-0">
-                  <EnhancedFreeMap />
+                  <EnhancedFreeMap showMap={showMap} />
                 </div>
               </div>
             )}
