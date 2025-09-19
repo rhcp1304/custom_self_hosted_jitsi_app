@@ -269,6 +269,8 @@ function App() {
                   SHOW_POWERED_BY: false,
                   SHOW_PROMOTIONAL_CLOSE_PAGE: false,
                   SHOW_CHROME_EXTENSION_BANNER: false,
+                  MOBILE_APP_PROMO: false,
+
               },
           };
 
