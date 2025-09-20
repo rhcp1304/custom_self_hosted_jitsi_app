@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Button } from './components/ui/button';
+import { Button } from '@/components/ui/button.jsx';
 import {
   MapPin, X, Youtube, List, Plus, Play, Trash2, Loader2, Search, ChevronDown, AlertCircle,
 } from 'lucide-react';
+import EnhancedFreeMap from './components/EnhancedFreeMap.jsx';
+import './App.css';
+import LenskartLogo from './logo.png';
 
 function App() {
   const [showMap, setShowMap] = useState(false);
@@ -275,11 +278,6 @@ function App() {
           const api = new window.JitsiMeetExternalAPI('meet-nso.diq.geoiq.ai', config);
           const newParticipantId = generateParticipantId();
           setParticipantId(newParticipantId);
-
-          // Add this event listener to prevent the "end of call" screen
-          api.addEventListener('videoConferenceLeft', () => {
-              cleanupJitsi();
-          });
 
           api.addEventListener('videoConferenceJoined', (event) => {
               setSyncStatus('connected');
@@ -682,7 +680,7 @@ function App() {
                   <h2 className="text-lg font-semibold">Map Services</h2>
                 </div>
                 <div className="flex-1 min-h-0">
-                  {/* The EnhancedFreeMap component would be here */}
+                  <EnhancedFreeMap />
                 </div>
               </div>
             )}
