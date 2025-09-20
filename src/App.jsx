@@ -1,11 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button.jsx';
+import { Button } from './components/ui/button';
 import {
   MapPin, X, Youtube, List, Plus, Play, Trash2, Loader2, Search, ChevronDown, AlertCircle,
 } from 'lucide-react';
-import EnhancedFreeMap from './components/EnhancedFreeMap.jsx';
-import './App.css';
-import LenskartLogo from './logo.png';
 
 function App() {
   const [showMap, setShowMap] = useState(false);
@@ -159,6 +156,7 @@ function App() {
   const startPeriodicSync = () => {
     if (syncIntervalRef.current) {
       clearInterval(syncIntervalRef.current);
+      syncIntervalRef.current = null;
     }
     syncIntervalRef.current = setInterval(() => {
       if (jitsiApi && participantId) {
@@ -278,6 +276,11 @@ function App() {
           const newParticipantId = generateParticipantId();
           setParticipantId(newParticipantId);
 
+          // Add this event listener to prevent the "end of call" screen
+          api.addEventListener('videoConferenceLeft', () => {
+              cleanupJitsi();
+          });
+
           api.addEventListener('videoConferenceJoined', (event) => {
               setSyncStatus('connected');
               setTimeout(() => {
@@ -361,11 +364,9 @@ function App() {
   };
 
   const initializeJitsiOnLoad = () => {
-    // UPDATED LINE: Add a cache-busting query parameter
     const jitsiScriptUrl = `https://meet-nso.diq.geoiq.ai/external_api.js?v=${Date.now()}`;
     const existingScript = document.querySelector(`script[src^="https://meet-nso.diq.geoiq.ai/external_api.js"]`);
 
-    // Remove the old script to ensure the new one loads
     if (existingScript) {
         existingScript.remove();
     }
@@ -681,7 +682,7 @@ function App() {
                   <h2 className="text-lg font-semibold">Map Services</h2>
                 </div>
                 <div className="flex-1 min-h-0">
-                  <EnhancedFreeMap />
+                  {/* The EnhancedFreeMap component would be here */}
                 </div>
               </div>
             )}
