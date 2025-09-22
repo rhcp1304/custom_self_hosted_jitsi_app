@@ -256,13 +256,13 @@ function App() {
                   disableAP: false,
               },
               interfaceConfigOverwrite: {
-                  TOOLBAR_BUTTONS: [
-                      'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen', 'fodeviceselection',
-                      'hangup', 'profile', 'chat', 'recording', 'livestreaming', 'etherpad', 'sharedvideo',
-                      'settings', 'raisehand', 'videoquality', 'filmstrip', 'invite', 'feedback', 'stats',
-                      'shortcuts', 'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
-                      'security',
-                  ],
+//                   TOOLBAR_BUTTONS: [
+//                       'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen', 'fodeviceselection',
+//                       'hangup', 'profile', 'chat', 'recording', 'livestreaming', 'etherpad', 'sharedvideo',
+//                       'settings', 'raisehand', 'videoquality', 'filmstrip', 'invite', 'feedback', 'stats',
+//                       'shortcuts', 'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
+//                       'security',
+//                   ],
                   SHOW_JITSI_WATERMARK: false,
                   SHOW_WATERMARK_FOR_GUESTS: false,
                   SHOW_BRAND_WATERMARK: false,
