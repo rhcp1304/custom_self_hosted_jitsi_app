@@ -243,36 +243,8 @@ function App() {
               parentNode: jitsiContainerRef.current,
               width: '100%',
               height: '100%',
-              configOverwrite: {
-                  startWithAudioMuted: true,
-                  startWithVideoMuted: true,
-                  prejoinPageEnabled: false,
-                  enableWelcomePage: false,
-                  enableClosePage: false,
-                  channelLastN: -1,
-                  enableDataChannels: true,
-                  enableP2P: true,
-                  p2p: { enabled: true },
-                  disableAP: false,
-              },
-              interfaceConfigOverwrite: {
-                  TOOLBAR_BUTTONS: [
-                      'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen', 'fodeviceselection',
-                      'hangup', 'profile', 'chat', 'recording', 'livestreaming', 'etherpad', 'sharedvideo',
-                      'settings', 'raisehand', 'videoquality', 'filmstrip', 'invite', 'feedback', 'stats',
-                      'shortcuts', 'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
-                      'security',
-                  ],
-                  SHOW_JITSI_WATERMARK: false,
-                  SHOW_WATERMARK_FOR_GUESTS: false,
-                  SHOW_BRAND_WATERMARK: false,
-                  BRAND_WATERMARK_LINK: '',
-                  SHOW_POWERED_BY: false,
-                  SHOW_PROMOTIONAL_CLOSE_PAGE: false,
-                  SHOW_CHROME_EXTENSION_BANNER: false,
-                  MOBILE_APP_PROMO: false,
-
-              },
+              // The configOverwrite and interfaceConfigOverwrite are now removed
+              // to rely on the default Jitsi server configuration.
           };
 
           const api = new window.JitsiMeetExternalAPI('meet-nso.diq.geoiq.ai', config);
@@ -304,8 +276,6 @@ function App() {
           api.addEventListener('sharedVideoStarted', (event) => {
               setIsVideoSharing(true);
               setCurrentSharedVideo(event.url);
-              // This command forces the local player to be muted.
-              // It does not affect other participants' players.
               forceAudioMute();
           });
           api.addEventListener('sharedVideoStopped', (event) => {
@@ -709,8 +679,8 @@ function App() {
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
