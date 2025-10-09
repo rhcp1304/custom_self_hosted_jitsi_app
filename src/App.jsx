@@ -638,7 +638,7 @@ function App() {
       </header>
 
       <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
-        {/* --- MODIFIED: Jitsi Container (Now uses 20% width when any panel is open) --- */}
+        {/* --- Jitsi Container (20% width when any panel is open) --- */}
         <div
           className={`
             bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl
@@ -666,11 +666,12 @@ function App() {
           />
         </div>
 
-        {/* --- MODIFIED: Side Panel Container (Now uses 80% width when open) --- */}
+        {/* --- Side Panel Container (80% width when open) --- */}
         {isSidePanelOpen && (
           <div className={`
-            fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative bg-green-800 border-t shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
-            md:w-[80%] md:border-l border-green-700
+            fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative bg-green-800 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
+            rounded-t-2xl md:rounded-r-2xl md:rounded-l-none overflow-hidden
+            md:w-[80%] md:border-l md:border-t-0 border-green-700
           `}>
 
             {showPlaylist && (
@@ -709,7 +710,7 @@ function App() {
                         draggable
                         onDragStart={(e) => handleDragStart(e, video)}
                         onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, targetVideo)}
+                        onDrop={(e) => handleDrop(e, video)}
                         onDragEnd={handleDragEnd}
                       >
                         <div className="flex-1 min-w-0">
@@ -749,7 +750,7 @@ function App() {
 
             {showCobrowsingPanel && (
               <div className="flex flex-col h-full">
-                {/* Removed Title Bar for cleaner UI */}
+                {/* The main container now has rounded corners and overflow-hidden */}
                 <div className="flex-1 min-h-0 relative">
                   <iframe
                       src={COBROWSING_URL}
@@ -758,7 +759,6 @@ function App() {
                       allow="camera; microphone; geolocation; display-capture; autoplay"
                       referrerPolicy="no-referrer"
                   />
-                  {/* Removed Floating Banner for cleaner UI */}
                 </div>
               </div>
             )}
