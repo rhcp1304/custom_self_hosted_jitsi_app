@@ -638,11 +638,11 @@ function App() {
       </header>
 
       <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
-        {/* --- MODIFIED: Jitsi Container (Now uses 70% width when any panel is open) --- */}
+        {/* --- MODIFIED: Jitsi Container (Now uses 30% width when any panel is open) --- */}
         <div
           className={`
             bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl
-            ${isSidePanelOpen ? 'w-full md:w-[70%]' : 'w-full'}
+            ${isSidePanelOpen ? 'w-full md:w-[30%]' : 'w-full'}
           `}
           style={{ transition: 'width 0.3s ease-in-out, opacity 0.3s ease-in-out' }}
         >
@@ -666,11 +666,11 @@ function App() {
           />
         </div>
 
-        {/* --- MODIFIED: Side Panel Container (Now uses 30% width when open) --- */}
+        {/* --- MODIFIED: Side Panel Container (Now uses 70% width when open) --- */}
         {isSidePanelOpen && (
           <div className={`
             fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative bg-green-800 border-t shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
-            md:w-[30%] md:border-l border-green-700
+            md:w-[70%] md:border-l border-green-700
           `}>
 
             {showPlaylist && (
@@ -749,12 +749,7 @@ function App() {
 
             {showCobrowsingPanel && (
               <div className="flex flex-col h-full">
-                <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
-                  <h2 className="text-lg font-semibold text-lime-400">Live Property Walkthrough (BD View)</h2>
-                  <Button onClick={toggleCobrowsing} variant="ghost" size="icon" className="text-rose-400 hover:bg-rose-400/20" title="Stop sharing walkthrough">
-                      <X className="w-5 h-5" />
-                  </Button>
-                </div>
+                {/* Removed Title Bar for cleaner UI */}
                 <div className="flex-1 min-h-0 relative">
                   <iframe
                       src={COBROWSING_URL}
@@ -763,9 +758,7 @@ function App() {
                       allow="camera; microphone; geolocation; display-capture; autoplay"
                       referrerPolicy="no-referrer"
                   />
-                  <div className="absolute top-0 left-0 right-0 p-1 text-center bg-lime-500/80 text-gray-900 text-xs font-bold pointer-events-none">
-                      LIVE COBROWSING PANEL
-                  </div>
+                  {/* Removed Floating Banner for cleaner UI */}
                 </div>
               </div>
             )}
