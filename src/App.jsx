@@ -629,13 +629,13 @@ function App() {
       </header>
 
       <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
-        {/* --- MODIFIED JITSI CONTAINER WRAPPER --- */}
+        {/* --- MODIFIED: Jitsi Container (Shrinks to 0% when Cobrowsing is active) --- */}
         <div
           className={`
             bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl
-            ${showCobrowsingPanel || showPlaylist || showMap ? 'w-full md:w-1/2' : 'w-full'}
+            ${showCobrowsingPanel ? 'w-0 md:w-0 md:opacity-0' : showPlaylist || showMap ? 'w-full md:w-1/2' : 'w-full'}
           `}
-          style={{ transition: 'width 0.3s ease-in-out' }} // Added transition for smoother visual effect
+          style={{ transition: 'width 0.3s ease-in-out, opacity 0.3s ease-in-out' }}
         >
           {isInitializing && (
             <div className="w-full h-full flex items-center justify-center bg-green-950">
@@ -657,9 +657,12 @@ function App() {
           />
         </div>
 
-        {/* --- MODIFIED SIDE PANEL CONTAINER --- */}
+        {/* --- MODIFIED: Side Panel Container (Expands to 100% when Cobrowsing is active) --- */}
         {(showPlaylist || showMap || showCobrowsingPanel) && (
-          <div className="fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 bg-green-800 border-t md:border-l border-green-700 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out">
+          <div className={`
+            fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative bg-green-800 border-t shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
+            ${showCobrowsingPanel && !(showPlaylist || showMap) ? 'md:w-full' : 'md:w-1/2 md:border-l border-green-700'}
+          `}>
 
             {showPlaylist && (
               <div className="flex flex-col h-full">
