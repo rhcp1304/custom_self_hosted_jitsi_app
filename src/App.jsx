@@ -641,7 +641,7 @@ function App() {
         {/* --- Jitsi Container (20% width when any panel is open) --- */}
         <div
           className={`
-            bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl
+            bg-green-900 flex flex-col min-h-0 relative rounded-2xl ${isSidePanelOpen ? 'md:rounded-r-none' : ''} overflow-hidden shadow-2xl
             ${isSidePanelOpen ? 'w-full md:w-[20%]' : 'w-full'}
           `}
           style={{ transition: 'width 0.3s ease-in-out, opacity 0.3s ease-in-out' }}
