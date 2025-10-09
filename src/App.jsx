@@ -91,15 +91,21 @@ function App() {
       timestamp: Date.now(),
     };
     try {
+      // 1. Try sending via the silent data channel first (preferred)
       jitsiApi.executeCommand('sendEndpointTextMessage', '', JSON.stringify(message));
     } catch (error) {
       console.log('Data channel failed, trying chat:', error);
     }
-    try {
-      const chatMessage = `[${type}] ${JSON.stringify(message)}`;
-      jitsiApi.executeCommand('sendChatMessage', chatMessage);
-    } catch (error) {
-      console.log('Chat method also failed:', error);
+
+    // 2. ONLY use the public chat as a fallback for PLAYLIST synchronization.
+    // We skip this for COBROWSING to prevent chat spam.
+    if (type !== COBROWSING_SYNC_TYPE) {
+        try {
+          const chatMessage = `[${type}] ${JSON.stringify(message)}`;
+          jitsiApi.executeCommand('sendChatMessage', chatMessage);
+        } catch (error) {
+          console.log('Chat method also failed:', error);
+        }
     }
 
     if (type === PLAYLIST_SYNC_TYPE) {
