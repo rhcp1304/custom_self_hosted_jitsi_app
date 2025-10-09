@@ -97,11 +97,11 @@ function App() {
       console.log('Data channel failed, trying chat:', error);
     }
 
-    // 2. ONLY use the public chat as a fallback for PLAYLIST synchronization.
-    // We skip this for COBROWSING to prevent chat spam.
-    if (type !== COBROWSING_SYNC_TYPE) {
+    // 2. Use the public chat as a fallback for synchronization.
+    // FIX: The previous code excluded COBROWSING_SYNC_TYPE, which broke sync when the data channel failed.
+    if (type === PLAYLIST_SYNC_TYPE || type === COBROWSING_SYNC_TYPE) {
         try {
-          const chatMessage = `[${PLAYLIST_SYNC_TYPE}] ${JSON.stringify(message)}`;
+          const chatMessage = `[${type}] ${JSON.stringify(message)}`;
           jitsiApi.executeCommand('sendChatMessage', chatMessage);
         } catch (error) {
           console.log('Chat method also failed:', error);
@@ -575,7 +575,6 @@ function App() {
 
   // Determine if any side panel is open for layout changes
   const isSidePanelOpen = showPlaylist || showMap || showCobrowsingPanel;
-
   // Determine if the COBROWSING panel is open specifically for the 100% / 80% split
   const isCobrowsingPanelActive = showCobrowsingPanel;
 
@@ -643,7 +642,7 @@ function App() {
       <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
         {/* --- Jitsi Container ---
           Logic:
-          1. If Cobrowsing is active: Hide on mobile (w-0 h-0), 20% width on desktop.
+          1. If Cobrowsing is active: Hide on mobile (w-0 h-0), 20% width on desktop. (20:80 split)
           2. If other panel is active: 35vh height on mobile, 20% width on desktop.
           3. No panel: Full width/height.
         */}
@@ -651,7 +650,7 @@ function App() {
           className={`
             bg-green-900 flex flex-col relative rounded-2xl ${isSidePanelOpen ? 'md:rounded-r-none' : ''} overflow-hidden shadow-2xl flex-shrink-0
             ${isCobrowsingPanelActive
-              ? 'w-0 h-0 md:w-[20%] md:h-full' // 👈 Cobrowsing Active: Hide on mobile, 20% on desktop
+              ? 'w-0 h-0 md:w-[20%] md:h-full' // 👈 NEW: Cobrowsing Active: Hide on mobile, 20% on desktop (0:100 mobile, 20:80 desktop)
               : isSidePanelOpen
                 ? 'w-full h-[35vh] md:w-[20%] md:h-full' // Other Panel Active: 35vh on mobile, 20% on desktop
                 : 'w-full h-full' // No Panel Active: Full width/height
@@ -687,7 +686,7 @@ function App() {
         {isSidePanelOpen && (
           <div className={`
             fixed bottom-0 left-0 right-0
-            ${isCobrowsingPanelActive ? 'h-full w-full' : 'h-2/3 w-full'}
+            ${isCobrowsingPanelActive ? 'h-full w-full' : 'h-2/3 w-full'} // 👈 NEW: 100% height/width on mobile when Cobrowsing is active
             md:h-full md:relative bg-green-800 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
             rounded-t-2xl md:rounded-r-2xl md:rounded-l-none overflow-hidden
             md:w-[80%] md:border-l md:border-t-0 border-green-700
