@@ -91,21 +91,15 @@ function App() {
       timestamp: Date.now(),
     };
     try {
-      // 1. Try sending via the silent data channel first (preferred)
       jitsiApi.executeCommand('sendEndpointTextMessage', '', JSON.stringify(message));
     } catch (error) {
       console.log('Data channel failed, trying chat:', error);
     }
-
-    // 2. ONLY use the public chat as a fallback for PLAYLIST synchronization.
-    // We skip this for COBROWSING to prevent chat spam.
-    if (type !== COBROWSING_SYNC_TYPE) {
-        try {
-          const chatMessage = `[${type}] ${JSON.stringify(message)}`;
-          jitsiApi.executeCommand('sendChatMessage', chatMessage);
-        } catch (error) {
-          console.log('Chat method also failed:', error);
-        }
+    try {
+      const chatMessage = `[${type}] ${JSON.stringify(message)}`;
+      jitsiApi.executeCommand('sendChatMessage', chatMessage);
+    } catch (error) {
+      console.log('Chat method also failed:', error);
     }
 
     if (type === PLAYLIST_SYNC_TYPE) {
@@ -573,9 +567,6 @@ function App() {
   const handleDragEnd = () => setDraggedItem(null);
   const filteredPlaylist = playlist.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  // Determine if any side panel is open for layout changes
-  const isSidePanelOpen = showPlaylist || showMap || showCobrowsingPanel;
-
   return (
     <div className="h-screen w-screen flex flex-col bg-green-950 text-white overflow-hidden">
       <header className="bg-green-900 px-4 py-2 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
@@ -638,11 +629,11 @@ function App() {
       </header>
 
       <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
-        {/* --- Jitsi Container (20% width when any panel is open) --- */}
+        {/* --- MODIFIED: Jitsi Container (Shrinks to 0% when Cobrowsing is active) --- */}
         <div
           className={`
-            bg-green-900 flex flex-col min-h-0 relative rounded-2xl ${isSidePanelOpen ? 'md:rounded-r-none' : ''} overflow-hidden shadow-2xl
-            ${isSidePanelOpen ? 'w-full md:w-[20%]' : 'w-full'}
+            bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl
+            ${showCobrowsingPanel ? 'w-0 md:w-0 md:opacity-0' : showPlaylist || showMap ? 'w-full md:w-1/2' : 'w-full'}
           `}
           style={{ transition: 'width 0.3s ease-in-out, opacity 0.3s ease-in-out' }}
         >
@@ -666,12 +657,11 @@ function App() {
           />
         </div>
 
-        {/* --- Side Panel Container (80% width when open) --- */}
-        {isSidePanelOpen && (
+        {/* --- MODIFIED: Side Panel Container (Expands to 100% when Cobrowsing is active) --- */}
+        {(showPlaylist || showMap || showCobrowsingPanel) && (
           <div className={`
-            fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative bg-green-800 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
-            rounded-t-2xl md:rounded-r-2xl md:rounded-l-none overflow-hidden
-            md:w-[80%] md:border-l md:border-t-0 border-green-700
+            fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative bg-green-800 border-t shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
+            ${showCobrowsingPanel && !(showPlaylist || showMap) ? 'md:w-full' : 'md:w-1/2 md:border-l border-green-700'}
           `}>
 
             {showPlaylist && (
@@ -750,7 +740,12 @@ function App() {
 
             {showCobrowsingPanel && (
               <div className="flex flex-col h-full">
-                {/* The main container now has rounded corners and overflow-hidden */}
+                <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
+                  <h2 className="text-lg font-semibold text-lime-400">Live Property Walkthrough (BD View)</h2>
+                  <Button onClick={toggleCobrowsing} variant="ghost" size="icon" className="text-rose-400 hover:bg-rose-400/20" title="Stop sharing walkthrough">
+                      <X className="w-5 h-5" />
+                  </Button>
+                </div>
                 <div className="flex-1 min-h-0 relative">
                   <iframe
                       src={COBROWSING_URL}
@@ -759,6 +754,9 @@ function App() {
                       allow="camera; microphone; geolocation; display-capture; autoplay"
                       referrerPolicy="no-referrer"
                   />
+                  <div className="absolute top-0 left-0 right-0 p-1 text-center bg-lime-500/80 text-gray-900 text-xs font-bold pointer-events-none">
+                      LIVE COBROWSING PANEL
+                  </div>
                 </div>
               </div>
             )}
