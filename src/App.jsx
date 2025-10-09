@@ -638,11 +638,11 @@ function App() {
       </header>
 
       <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
-        {/* --- MODIFIED: Jitsi Container (Now uses 30% width when any panel is open) --- */}
+        {/* --- MODIFIED: Jitsi Container (Now uses 20% width when any panel is open) --- */}
         <div
           className={`
             bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl
-            ${isSidePanelOpen ? 'w-full md:w-[30%]' : 'w-full'}
+            ${isSidePanelOpen ? 'w-full md:w-[20%]' : 'w-full'}
           `}
           style={{ transition: 'width 0.3s ease-in-out, opacity 0.3s ease-in-out' }}
         >
@@ -666,11 +666,11 @@ function App() {
           />
         </div>
 
-        {/* --- MODIFIED: Side Panel Container (Now uses 70% width when open) --- */}
+        {/* --- MODIFIED: Side Panel Container (Now uses 80% width when open) --- */}
         {isSidePanelOpen && (
           <div className={`
             fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative bg-green-800 border-t shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
-            md:w-[70%] md:border-l border-green-700
+            md:w-[80%] md:border-l border-green-700
           `}>
 
             {showPlaylist && (
@@ -709,7 +709,7 @@ function App() {
                         draggable
                         onDragStart={(e) => handleDragStart(e, video)}
                         onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, video)}
+                        onDrop={(e) => handleDrop(e, targetVideo)}
                         onDragEnd={handleDragEnd}
                       >
                         <div className="flex-1 min-w-0">
