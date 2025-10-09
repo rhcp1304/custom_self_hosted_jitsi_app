@@ -1,884 +1,840 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jitsi Video Share & Sync App</title>
-    <!-- Load Tailwind CSS CDN for styling utility classes -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        // Configure Tailwind to use the Inter font by default
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                    colors: {
-                        'green-950': '#0d1a18',
-                        'green-900': '#152b27',
-                        'green-800': '#1c3d38',
-                        'green-700': '#2c534e',
-                        'lime-400': '#a7f3d0',
-                        'lime-500': '#86efad',
-                        'amber-500': '#f59e0b',
-                        'amber-600': '#d97706',
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  MapPin, X, Youtube, List, Plus, Play, Trash2, Loader2, Search, ChevronDown, AlertCircle, Monitor, ScreenShare,
+} from 'lucide-react';
+
+// --- Global Constants and Firebase Setup (Keep apiKey empty for Canvas environment) ---
+const apiKey = "";
+const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent";
+
+// Global variables for Firebase environment (MANDATORY USE)
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+// Mock Firebase Imports (Real imports are handled externally in the Canvas setup)
+// We assume these functions are globally available or handled by the environment
+/*
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, setDoc, onSnapshot, collection, query, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+*/
+
+// --- INLINE UI COMPONENT REPLACEMENTS (For Tailwind/Lucide) ---
+
+const Button = ({ children, onClick, className = '', variant = 'default', size = 'default', disabled = false, title = '' }) => {
+    let baseStyle = 'inline-flex items-center justify-center rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50 disabled:pointer-events-none shadow-md';
+    let variantStyle = '';
+    let sizeStyle = '';
+
+    switch (variant) {
+        case 'ghost':
+            variantStyle = 'bg-transparent text-white hover:bg-green-700/50';
+            break;
+        case 'outline':
+            variantStyle = 'border border-amber-500 text-amber-500 hover:bg-amber-500/10';
+            break;
+        case 'secondary':
+            variantStyle = 'bg-green-700 text-white hover:bg-green-600';
+            break;
+        case 'destructive':
+            variantStyle = 'bg-red-600 text-white hover:bg-red-700';
+            break;
+        default:
+            variantStyle = 'bg-amber-500 text-gray-900 hover:bg-amber-600';
+    }
+
+    switch (size) {
+        case 'icon':
+            sizeStyle = 'h-10 w-10 p-2';
+            break;
+        case 'sm':
+            sizeStyle = 'h-9 px-3 text-sm';
+            break;
+        default:
+            sizeStyle = 'h-11 px-4 py-2';
+    }
+
+    return (
+        <button
+            onClick={onClick}
+            className={`${baseStyle} ${variantStyle} ${sizeStyle} ${className}`}
+            disabled={disabled}
+            title={title}
+        >
+            {children}
+        </button>
+    );
+};
+
+const Input = ({ value, onChange, placeholder, className = '', type = 'text', disabled = false }) => (
+    <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        disabled={disabled}
+        className={`flex h-10 w-full rounded-xl border border-green-600 bg-green-900 px-3 py-2 text-sm text-white placeholder:text-green-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-green-950 disabled:cursor-not-allowed disabled:opacity-50 transition-colors ${className}`}
+    />
+);
+
+const Card = ({ children, className = '' }) => (
+    <div className={`rounded-2xl bg-green-800/50 backdrop-blur-sm p-6 shadow-xl border border-green-700 ${className}`}>
+        {children}
+    </div>
+);
+
+// --- Mock Jitsi Meet External API ---
+let jitsiApi = null;
+const JitsiMeetExternalAPI = window.JitsiMeetExternalAPI;
+
+// --- Helper Functions ---
+
+const generateRoomName = () => {
+    return 'jitsi-map-room-' + Math.random().toString(36).substring(2, 9);
+};
+
+async function exponentialBackoffFetch(url, options, maxRetries = 5, initialDelay = 1000) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                // Throw error to trigger retry for specific status codes if needed, otherwise handle
+                if (response.status === 429 || response.status >= 500) {
+                     throw new Error(`Server error: ${response.status}`);
+                }
+            }
+            return response;
+        } catch (error) {
+            if (i === maxRetries - 1) {
+                console.error("Fetch failed after multiple retries:", error);
+                throw error;
+            }
+            const delay = initialDelay * Math.pow(2, i) + Math.random() * 500;
+            // console.log(`Retry ${i + 1}/${maxRetries} after ${delay.toFixed(0)}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+}
+
+// --- Jitsi Integration ---
+
+const JitsiMeet = ({ roomName, displayName, parentNode, onReady, onConferenceJoined, onConferenceLeft }) => {
+    const jitsiContainerRef = useRef(null);
+
+    useEffect(() => {
+        if (!JitsiMeetExternalAPI) {
+            console.error("JitsiMeetExternalAPI not loaded.");
+            return;
+        }
+
+        const options = {
+            roomName: roomName,
+            parentNode: jitsiContainerRef.current,
+            userInfo: {
+                displayName: displayName
+            },
+            configOverwrite: {
+                startWithAudioMuted: false,
+                startWithVideoMuted: true,
+            },
+            interfaceConfigOverwrite: {
+                DEFAULT_BACKGROUND: '#10b981', // Emerald 500
+                JITSI_WATERMARK_LINK: 'https://jitsi.org/',
+                DEFAULT_REMOTE_DISPLAY_NAME: 'Fellow Collaborator',
+                TOOLBAR_BUTTONS: [
+                    'microphone', 'camera', 'desktop', 'fullscreen',
+                    'fodeviceselection', 'hangup', 'profile', 'chat',
+                    'tileview', 'settings', 'videoquality', 'link'
+                ],
+            },
+        };
+
+        const api = new JitsiMeetExternalAPI('meet.jit.si', options);
+        jitsiApi = api;
+
+        api.addListener('readyToClose', onConferenceLeft);
+        api.addListener('videoConferenceJoined', onConferenceJoined);
+
+        if (onReady) onReady(api);
+
+        return () => {
+            if (api) {
+                api.dispose();
+                jitsiApi = null;
+            }
+        };
+    }, [roomName, displayName, onConferenceJoined, onConferenceLeft, onReady]);
+
+    return (
+        <div ref={jitsiContainerRef} className="w-full h-full min-h-[300px] rounded-xl overflow-hidden shadow-2xl">
+            {/* Jitsi content will be injected here */}
+        </div>
+    );
+};
+
+// --- LLM Service for Location/Map Analysis ---
+
+const analyzeMapPrompt = async (prompt) => {
+    const systemPrompt = "You are a specialized geographical and map analyst. Analyze the user's request and provide a concise, structured JSON object with the most relevant search queries (up to 3) to find location information or relevant videos/resources. DO NOT generate an actual text response, only the JSON.";
+    const userQuery = `Analyze the following map-related or location-related request and suggest search queries: "${prompt}"`;
+
+    const payload = {
+        contents: [{ parts: [{ text: userQuery }] }],
+        tools: [{ "google_search": {} }],
+        systemInstruction: {
+            parts: [{ text: systemPrompt }]
+        },
+        generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: "OBJECT",
+                properties: {
+                    searchQueries: {
+                        type: "ARRAY",
+                        description: "A list of up to 3 highly relevant and specific search queries to find the requested location, map data, or educational video resources.",
+                        items: { type: "STRING" }
                     }
-                }
+                },
+                required: ["searchQueries"]
             }
         }
-    </script>
-    <!-- Load React and ReactDOM from CDN -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <!-- Load Babel for JSX and modern JavaScript syntax support in the browser -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    };
 
-    <style>
-        /* Custom scrollbar for better visibility */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 8px;
+    try {
+        const response = await exponentialBackoffFetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (jsonText) {
+            const parsedJson = JSON.parse(jsonText);
+            return parsedJson.searchQueries || [];
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #1c3d38; /* green-800 */
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #2c534e; /* green-700 */
-            border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #a7f3d0; /* lime-400 */
-        }
+        return [];
 
-        /* Ensure the main root container fills the viewport */
-        #root {
-            height: 100vh;
-            width: 100vw;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
+    } catch (e) {
+        console.error("LLM API call failed:", e);
+        return ["Map analysis failed, search manually"];
+    }
+};
 
-        /* Essential fix for Jitsi iframe visibility */
-        #jitsi-container iframe {
-            display: block;
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
+// --- Main App Component ---
 
-    <script type="text/babel">
-        // Import replacements for lucide-react (since we can't import node modules directly in a CDN environment)
-        // These are inline SVG definitions that match the lucide icons used in App.jsx
-        const MapPin = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>;
-        const X = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
-        const List = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>;
-        const Plus = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
-        const Play = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>;
-        const Trash2 = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
-        const Loader2 = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
-        const Search = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>;
-        const ChevronDown = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>;
-        const AlertCircle = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>;
-        const Monitor = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>;
-        const ScreenShare = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
+const App = () => {
+    // Firebase State
+    const [db, setDb] = useState(null);
+    const [auth, setAuth] = useState(null);
+    const [userId, setUserId] = useState(null);
+    const [isAuthReady, setIsAuthReady] = useState(false);
 
+    // App State
+    const [displayName, setDisplayName] = useState('');
+    const [activeRoom, setActiveRoom] = useState(null); // The room the user is currently in (string)
+    const [showRoomView, setShowRoomView] = useState(true); // Toggles between Room/Map/Replit view
+    const [showMap, setShowMap] = useState(false);
+    const [showReplitView, setShowReplitView] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-        const { useState, useEffect, useRef } = React;
+    // Room List State
+    const [rooms, setRooms] = useState([]); // List of publicly shared room objects
+    const [newRoomName, setNewRoomName] = useState('');
 
-        // --- INLINE UI COMPONENT REPLACEMENTS ---
+    // LLM/Search State
+    const [mapSearchPrompt, setMapSearchPrompt] = useState('');
+    const [llmSearchQueries, setLlmSearchQueries] = useState([]);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-        // 1. Simplified Button Component (to replace external import)
-        const Button = ({ children, onClick, className = '', variant = 'default', size = 'default', disabled = false, title = '' }) => {
-            let baseStyle = 'inline-flex items-center justify-center rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50 disabled:pointer-events-none shadow-md';
-            let variantStyle = '';
-            let sizeStyle = '';
+    // Error Modal State
+    const [showErrorModal, setShowErrorModal] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
 
-            switch (variant) {
-                case 'ghost':
-                    variantStyle = 'bg-transparent hover:bg-green-700/50';
-                    break;
-                case 'outline':
-                    variantStyle = 'border border-amber-500 text-amber-500 hover:bg-amber-500/10';
-                    break;
-                default:
-                    variantStyle = 'bg-amber-500 text-gray-900 hover:bg-amber-600';
-            }
+    const displayAlert = (message) => {
+        setErrorMessage(message);
+        setShowErrorModal(true);
+    };
 
-            switch (size) {
-                case 'icon':
-                    sizeStyle = 'h-10 w-10 p-2';
-                    break;
-                case 'sm':
-                    sizeStyle = 'h-9 px-3';
-                    break;
-                default:
-                    sizeStyle = 'h-10 px-4 py-2';
-            }
+    // --- Firebase Initialization and Auth ---
+    useEffect(() => {
+        console.log("Starting Firebase initialization...");
+        try {
+            // Note: Canvas provides the necessary Firebase environment
+            if (Object.keys(firebaseConfig).length > 0) {
+                 const app = window.firebase.initializeApp(firebaseConfig);
+                 const fAuth = window.firebase.getAuth(app);
+                 const fDb = window.firebase.getFirestore(app);
 
-            return (
-                <button
-                    onClick={onClick}
-                    className={`${baseStyle} ${variantStyle} ${sizeStyle} ${className}`}
-                    disabled={disabled}
-                    title={title}
-                >
-                    {children}
-                </button>
-            );
-        };
+                 setDb(fDb);
+                 setAuth(fAuth);
 
-        // --- INLINE FEATURE COMPONENTS ---
-
-        // 2. Replit Co-browsing Component (New Feature)
-        const ReplitCoBrowsingView = () => {
-            // The sample URL provided uses a dynamic room ID, so we use a mock one for demonstration.
-            const sampleUrl = 'https://geo-stream.replit.app/playback/c5eca37c-0e06-47ae-a96e-2ae1623e53fc?roomId=bdhOlu_XJu';
-
-            return (
-                <div className="flex flex-col h-full bg-green-950">
-                    <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
-                        <h2 className="text-lg font-semibold flex items-center">
-                            <ScreenShare className="w-5 h-5 mr-2 text-lime-400" />
-                            Replit Co-browsing Stream
-                        </h2>
-                        <span className="text-xs text-gray-400">Sample Stream Demo</span>
-                    </div>
-                    <div className="flex-1 min-h-0 relative">
-                        <iframe
-                            src={sampleUrl}
-                            className="w-full h-full border-0"
-                            title="Replit Co-browsing Video Playback"
-                            allowFullScreen
-                            style={{ minHeight: '300px' }}
-                        />
-                    </div>
-                     <div className="p-2 text-center bg-green-900 text-xs text-gray-500 border-t border-green-700">
-                        This is a live co-browsing stream loaded from Replit.
-                    </div>
-                </div>
-            );
-        };
-
-        // 3. EnhancedFreeMap Component (Defined Inline)
-        const EnhancedFreeMap = () => {
-            // Using an iframe to embed a simple, responsive OpenStreetMap view for compliance.
-            const mapEmbedUrl = "https://www.openstreetmap.org/export/embed.html?bbox=77.5946%2C12.9716%2C77.5996%2C12.9766&layer=mapnik&marker=12.9741,77.5971";
-
-            return (
-                <div className="flex flex-col h-full bg-gray-100">
-                    <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
-                        <h2 className="text-lg font-semibold flex items-center">
-                            <MapPin className="w-5 h-5 mr-2 text-lime-400" />
-                            Interactive Map Service
-                        </h2>
-                    </div>
-                    <div className="flex-1 min-h-0 relative">
-                        <iframe
-                            src={mapEmbedUrl}
-                            className="w-full h-full border-0"
-                            title="OpenStreetMap Embed"
-                            allowFullScreen
-                            style={{ filter: 'grayscale(20%) brightness(80%)', minHeight: '300px' }}
-                        />
-                    </div>
-                </div>
-            );
-        };
-
-
-        // --- MAIN APP COMPONENT ---
-
-        function App() {
-          const [showMap, setShowMap] = useState(false);
-          const [showReplitView, setShowReplitView] = useState(false); // New state for Replit view
-          const [videoUrl, setVideoUrl] = useState('');
-          const [isVideoSharing, setIsVideoSharing] = useState(false);
-          const [currentSharedVideo, setCurrentSharedVideo] = useState('');
-          const [playlist, setPlaylist] = useState([]);
-          const [showPlaylist, setShowPlaylist] = useState(false);
-          const [jitsiInitialized, setJitsiInitialized] = useState(false);
-          const [isInitializing, setIsInitializing] = useState(false);
-          const [isLoadingVideoTitle, setIsLoadingVideoTitle] = useState(false);
-          const [participantId, setParticipantId] = useState('');
-          const [isPlaylistSynced, setIsPlaylistSynced] = useState(false);
-          const [audioMuted, setAudioMuted] = useState(false);
-          const [syncStatus, setSyncStatus] = useState('disconnected');
-          const [searchTerm, setSearchTerm] = useState('');
-          const [draggedItem, setDraggedItem] = useState(null);
-          const [showErrorModal, setShowErrorModal] = useState(false);
-          const [errorMessage, setErrorMessage] = useState('');
-
-          const jitsiContainerRef = useRef(null);
-          const [jitsiApi, setJitsiApi] = useState(null);
-          const syncIntervalRef = useRef(null);
-          const muteIntervalRef = useRef(null);
-
-          const showError = (message) => {
-            setErrorMessage(message);
-            setShowErrorModal(true);
-          };
-
-          const generateParticipantId = () => {
-            return `participant_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          };
-
-          const fetchYouTubeVideoTitle = async (videoUrl) => {
-            try {
-              const response = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(videoUrl)}`);
-              if (response.ok) {
-                const data = await response.json();
-                return data.title || 'Unknown Video';
-              }
-            } catch (error) {
-              console.error('Error fetching video title:', error);
-            }
-            return 'Unknown Video';
-          };
-
-          const storePlaylistLocally = (playlistData) => {
-            const data = {
-              playlist: playlistData,
-              timestamp: Date.now(),
-              participantId: participantId,
-            };
-            localStorage.setItem('jitsi_shared_playlist', JSON.stringify(data));
-          };
-
-          const getLocalPlaylist = () => {
-            try {
-              const data = localStorage.getItem('jitsi_shared_playlist');
-              if (data) {
-                return JSON.parse(data);
-              }
-            } catch (error) {
-              console.error('Error reading local playlist:', error);
-            }
-            return null;
-          };
-
-          const broadcastPlaylistUpdate = (action, data) => {
-            if (!jitsiApi) return;
-            const message = {
-              type: 'PLAYLIST_SYNC',
-              action: action,
-              data: data,
-              participantId: participantId,
-              timestamp: Date.now(),
-            };
-            try {
-              jitsiApi.executeCommand('sendEndpointTextMessage', '', JSON.stringify(message));
-            } catch (error) {
-              console.log('Data channel failed, trying chat:', error);
-            }
-            try {
-              const chatMessage = `[PLAYLIST_SYNC] ${JSON.stringify(message)}`;
-              jitsiApi.executeCommand('sendChatMessage', chatMessage);
-            } catch (error) {
-              console.log('Chat method also failed:', error);
-            }
-            storePlaylistLocally(action === 'FULL_SYNC' ? data : playlist);
-            setSyncStatus('syncing');
-          };
-
-          const handleIncomingMessage = (messageData) => {
-            try {
-              let message;
-              if (typeof messageData === 'string') {
-                if (messageData.startsWith('[PLAYLIST_SYNC]')) {
-                  message = JSON.parse(messageData.replace('[PLAYLIST_SYNC]', '').trim());
-                } else {
-                  message = JSON.parse(messageData);
-                }
-              } else if (messageData.data) {
-                if (messageData.data.startsWith('[PLAYLIST_SYNC]')) {
-                  message = JSON.parse(messageData.data.replace('[PLAYLIST_SYNC]', '').trim());
-                } else {
-                  message = JSON.parse(messageData.data);
-                }
-              } else {
-                return;
-              }
-              if (message.participantId === participantId) return;
-
-              if (message.type === 'PLAYLIST_SYNC') {
-                switch (message.action) {
-                  case 'ADD':
-                    setPlaylist((prev) => {
-                      const exists = prev.find((video) => video.id === message.data.id);
-                      if (!exists) {
-                        const newPlaylist = [...prev, message.data];
-                        storePlaylistLocally(newPlaylist);
-                        return newPlaylist;
-                      }
-                      return prev;
-                    });
-                    break;
-                  case 'REMOVE':
-                    setPlaylist((prev) => {
-                      const newPlaylist = prev.filter((video) => video.id !== message.data.id);
-                      storePlaylistLocally(newPlaylist);
-                      return newPlaylist;
-                    });
-                    break;
-                  case 'FULL_SYNC':
-                    setPlaylist(message.data);
-                    storePlaylistLocally(message.data);
-                    break;
-                  case 'REORDER':
-                    setPlaylist(message.data);
-                    storePlaylistLocally(message.data);
-                    break;
-                }
-                setIsPlaylistSynced(true);
-                setSyncStatus('connected');
-              }
-
-            } catch (error) {
-              console.error('Error handling incoming message:', error);
-            }
-          };
-
-          const startPeriodicSync = () => {
-            if (syncIntervalRef.current) {
-              clearInterval(syncIntervalRef.current);
-              syncIntervalRef.current = null;
-            }
-            syncIntervalRef.current = setInterval(() => {
-              if (jitsiApi && participantId) {
-                broadcastPlaylistUpdate('REQUEST_SYNC', null);
-                const localData = getLocalPlaylist();
-                if (localData && localData.participantId !== participantId) {
-                  const timeDiff = Date.now() - localData.timestamp;
-                  if (timeDiff < 30000) {
-                    setPlaylist(localData.playlist);
-                    setIsPlaylistSynced(true);
-                    setSyncStatus('connected');
-                  }
-                }
-              }
-            }, 5000);
-          };
-
-          const muteJitsiSharedVideo = () => {
-            try {
-              const jitsiVideoContainer = jitsiContainerRef.current;
-              if (!jitsiVideoContainer) return;
-              const videoIframes = jitsiVideoContainer.querySelectorAll('iframe');
-              videoIframes.forEach(iframe => {
-                if (iframe.src.includes('youtube.com')) {
-                  iframe.muted = true;
-                  iframe.volume = 0;
-                  const message = JSON.stringify({ event: 'command', func: 'setVolume', args: [0] });
-                  iframe.contentWindow.postMessage(message, '*');
-                  const messageMute = JSON.stringify({ event: 'command', func: 'mute' });
-                  iframe.contentWindow.postMessage(messageMute, '*');
-                  setAudioMuted(true);
-                }
-              });
-              const allVideos = jitsiVideoContainer.querySelectorAll('video');
-              allVideos.forEach(element => {
-                  if (!element.muted) {
-                      element.muted = true;
-                      element.volume = 0;
-                  }
-              });
-            } catch (error) {
-              console.error('Error muting shared video:', error);
-            }
-          };
-
-          const stopMutingInterval = () => {
-              if (muteIntervalRef.current) {
-                  clearInterval(muteIntervalRef.current);
-                  muteIntervalRef.current = null;
-              }
-          };
-
-          const forceAudioMute = () => {
-              stopMutingInterval();
-              muteJitsiSharedVideo();
-              muteIntervalRef.current = setInterval(muteJitsiSharedVideo, 500);
-              setAudioMuted(true);
-          };
-
-          const initializeJitsi = async () => {
-              if (isInitializing || (jitsiInitialized && jitsiApi)) return;
-              if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) {
-                  console.warn('JitsiMeetExternalAPI script or container not ready.');
-                  return;
-              }
-              setIsInitializing(true);
-              setSyncStatus('disconnected');
-
-              try {
-                  if (jitsiContainerRef.current) {
-                      while (jitsiContainerRef.current.firstChild) {
-                          jitsiContainerRef.current.removeChild(jitsiContainerRef.current.firstChild);
-                      }
-                  }
-                  setPlaylist([]);
-                  localStorage.removeItem('jitsi_shared_playlist');
-                  await new Promise((resolve) => setTimeout(resolve, 200));
-
-                  const config = {
-                      roomName: 'property-approval-meeting',
-                      parentNode: jitsiContainerRef.current,
-                      width: '100%',
-                      height: '100%',
-                      // The configOverwrite and interfaceConfigOverwrite are now removed
-                      // to rely on the default Jitsi server configuration.
-                  };
-
-                  const api = new window.JitsiMeetExternalAPI('meet-nso.diq.geoiq.ai', config);
-                  const newParticipantId = generateParticipantId();
-                  setParticipantId(newParticipantId);
-
-                  api.addEventListener('videoConferenceJoined', (event) => {
-                      setSyncStatus('connected');
-                      setTimeout(() => {
-                          startPeriodicSync();
-                          broadcastPlaylistUpdate('FULL_SYNC', playlist);
-                      }, 2000);
-                  });
-
-                  api.addEventListener('participantJoined', (event) => {
-                      setTimeout(() => {
-                          if (playlist.length > 0) {
-                              broadcastPlaylistUpdate('FULL_SYNC', playlist);
-                          }
-                      }, 1000);
-                  });
-
-                  api.addEventListener('endpointTextMessageReceived', (event) => handleIncomingMessage(event));
-                  api.addEventListener('incomingMessage', (event) => {
-                      if (event.message && event.message.includes('[PLAYLIST_SYNC]')) {
-                          handleIncomingMessage(event.message);
-                      }
-                  });
-                  api.addEventListener('sharedVideoStarted', (event) => {
-                      setIsVideoSharing(true);
-                      setCurrentSharedVideo(event.url);
-                      forceAudioMute();
-                  });
-                  api.addEventListener('sharedVideoStopped', (event) => {
-                      setIsVideoSharing(false);
-                      setCurrentSharedVideo('');
-                      stopMutingInterval();
-                      setAudioMuted(false);
-                  });
-
-                  await new Promise((resolve) => {
-                      const checkReady = () => {
-                          if (api.isAudioMuted !== undefined) resolve();
-                          else setTimeout(checkReady, 100);
-                      };
-                      checkReady();
-                  });
-
-                  setJitsiApi(api);
-                  setJitsiInitialized(true);
-              } catch (error) {
-                  console.error('Error during Jitsi initialization:', error);
-                  setJitsiInitialized(false);
-                  setJitsiApi(null);
-                  setSyncStatus('disconnected');
-              } finally {
-                  setIsInitializing(false);
-              }
-          };
-
-          const cleanupJitsi = () => {
-            stopMutingInterval();
-            if (syncIntervalRef.current) {
-              clearInterval(syncIntervalRef.current);
-              syncIntervalRef.current = null;
-            }
-            if (jitsiApi) {
-              try { jitsiApi.dispose(); } catch (error) { console.error('Error disposing Jitsi API:', error); }
-              setJitsiApi(null);
-            }
-            setJitsiInitialized(false);
-            setIsVideoSharing(false);
-            setCurrentSharedVideo('');
-            setParticipantId('');
-            setIsPlaylistSynced(false);
-            setAudioMuted(false);
-            setSyncStatus('disconnected');
-            setPlaylist([]);
-            localStorage.removeItem('jitsi_shared_playlist');
-            if (jitsiContainerRef.current) {
-              while (jitsiContainerRef.current.firstChild) {
-                jitsiContainerRef.current.removeChild(jitsiContainerRef.current.firstChild);
-              }
-            }
-          };
-
-          const initializeJitsiOnLoad = () => {
-            const jitsiScriptUrl = `https://meet-nso.diq.geoiq.ai/external_api.js?v=${Date.now()}`;
-            const existingScript = document.querySelector(`script[src^="https://meet-nso.diq.geoiq.ai/external_api.js"]`);
-
-            if (existingScript) {
-                existingScript.remove();
-            }
-
-            const script = document.createElement('script');
-            script.src = jitsiScriptUrl;
-            script.async = true;
-            script.onload = initializeJitsi;
-            script.onerror = () => console.error('Failed to load Jitsi External API script.');
-            document.head.appendChild(script);
-          };
-
-          useEffect(() => {
-            // Only load the Jitsi script once when the component mounts
-            if (!jitsiInitialized && !isInitializing) {
-              initializeJitsiOnLoad();
-            }
-            return () => { cleanupJitsi(); };
-          }, []);
-
-          useEffect(() => {
-            if (!jitsiContainerRef.current) return;
-            const observer = new MutationObserver((mutations) => {
-              mutations.forEach((mutation) => {
-                if (mutation.type === 'childList') {
-                  mutation.addedNodes.forEach((node) => {
-                    if (node.tagName === 'IFRAME' || (node.querySelector && node.querySelector('iframe'))) {
-                      forceAudioMute();
+                 window.firebase.onAuthStateChanged(fAuth, async (user) => {
+                    if (user) {
+                        setUserId(user.uid);
+                    } else {
+                        // Sign in anonymously if initial auth token is missing
+                        if (initialAuthToken) {
+                            await window.firebase.signInWithCustomToken(fAuth, initialAuthToken);
+                        } else {
+                            await window.firebase.signInAnonymously(fAuth);
+                        }
                     }
-                  });
-                }
-              });
+                    setIsAuthReady(true);
+                    console.log("Firebase Auth Ready.");
+                 });
+                 window.firebase.setLogLevel('debug'); // For Firestore logs
+
+            } else {
+                displayAlert("Firebase configuration is missing. Data persistence will not work.");
+                setUserId(crypto.randomUUID()); // Fallback to a random ID
+                setIsAuthReady(true);
+            }
+        } catch (e) {
+            console.error("Firebase Init Error:", e);
+            displayAlert(`Failed to initialize Firebase: ${e.message}`);
+        }
+    }, []);
+
+    // --- Firestore Data Listener (Public Rooms) ---
+    useEffect(() => {
+        if (!db || !isAuthReady) return;
+
+        try {
+            const roomsColRef = window.firebase.collection(db, `artifacts/${appId}/public/data/jitsi_rooms`);
+            const q = window.firebase.query(roomsColRef);
+
+            const unsubscribe = window.firebase.onSnapshot(q, (snapshot) => {
+                const fetchedRooms = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                // Sort by last activity or creation time
+                setRooms(fetchedRooms.sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0)));
+                console.log("Rooms updated from Firestore.");
+            }, (error) => {
+                console.error("Error listening to rooms:", error);
             });
-            observer.observe(jitsiContainerRef.current, { childList: true, subtree: true });
-            return () => { observer.disconnect(); };
-          }, [jitsiContainerRef]);
 
-          // Unified Toggle Function
-          const togglePanel = (panelName) => {
-            setShowPlaylist(panelName === 'playlist' ? !showPlaylist : false);
-            setShowMap(panelName === 'map' ? !showMap : false);
-            setShowReplitView(panelName === 'replit' ? !showReplitView : false);
-          };
+            return () => unsubscribe();
+        } catch (e) {
+            console.error("Firestore setup error:", e);
+            // Handle error (e.g., display error message)
+        }
+    }, [db, isAuthReady]);
 
-          const shareVideoDirectly = () => {
-            if (jitsiApi && videoUrl) {
-              try {
-                if (isVideoSharing) stopVideoSharing();
-                jitsiApi.executeCommand('startShareVideo', videoUrl);
-                setIsVideoSharing(true);
-                setCurrentSharedVideo(videoUrl);
-                setVideoUrl('');
-                forceAudioMute();
-              } catch (error) {
-                console.error('Error sharing video:', error);
-                showError('Failed to share video. Please make sure you have joined the meeting.');
-              }
-            } else if (!jitsiApi) {
-              showError('Please wait for the meeting to load and join first');
-            } else {
-              showError('Please enter a YouTube URL');
-            }
-          };
 
-          const stopVideoSharing = () => {
-            if (jitsiApi && isVideoSharing) {
-              try {
-                jitsiApi.executeCommand('stopShareVideo');
-                setIsVideoSharing(false);
-                setCurrentSharedVideo('');
-                stopMutingInterval();
-                setAudioMuted(false);
-              } catch (error) {
-                console.error('Error stopping video:', error);
-              }
-            }
-          };
+    // --- Handlers ---
 
-          const addToPlaylist = async () => {
-            if (videoUrl && extractYouTubeVideoId(videoUrl)) {
-              setIsLoadingVideoTitle(true);
-              const videoId = extractYouTubeVideoId(videoUrl);
-              try {
-                const videoTitle = await fetchYouTubeVideoTitle(videoUrl);
-                const newVideo = { id: Date.now() + Math.random(), url: videoUrl, videoId: videoId, title: videoTitle, };
-                setPlaylist((prev) => {
-                  const newPlaylist = [...prev, newVideo];
-                  storePlaylistLocally(newPlaylist);
-                  return newPlaylist;
-                });
-                setVideoUrl('');
-                broadcastPlaylistUpdate('ADD', newVideo);
-                setIsPlaylistSynced(true);
-              } catch (error) {
-                console.error('Error adding video to playlist:', error);
-                const newVideo = { id: Date.now() + Math.random(), url: videoUrl, videoId: videoId, title: `Video ${playlist.length + 1}`, };
-                setPlaylist((prev) => {
-                  const newPlaylist = [...prev, newVideo];
-                  storePlaylistLocally(newPlaylist);
-                  return newPlaylist;
-                });
-                broadcastPlaylistUpdate('ADD', newVideo);
-                setVideoUrl('');
-              } finally {
-                setIsLoadingVideoTitle(false);
-              }
-            } else {
-              showError('Please enter a valid YouTube URL');
-            }
-          };
+    const handleCreateRoom = useCallback(async () => {
+        if (!userId || !db) {
+            displayAlert("Authentication not complete. Please wait a moment.");
+            return;
+        }
 
-          const removeFromPlaylist = (id) => {
-            setPlaylist((prev) => {
-              const newPlaylist = prev.filter((video) => video.id !== id);
-              storePlaylistLocally(newPlaylist);
-              return newPlaylist;
+        const roomNameSlug = newRoomName.trim().replace(/\s+/g, '-').toLowerCase() || generateRoomName();
+        if (roomNameSlug.length === 0) {
+             displayAlert("Room name cannot be empty.");
+             return;
+        }
+
+        setIsLoading(true);
+        try {
+            const roomData = {
+                name: newRoomName.trim() || `Untitled Room (${Date.now()})`,
+                jitsiRoomId: roomNameSlug,
+                creatorId: userId,
+                creatorName: displayName || 'Anonymous User',
+                createdAt: window.firebase.serverTimestamp(),
+                lastActivity: Date.now(),
+                users: [userId],
+                active: true,
+                mapData: null, // Placeholder for map state sharing
+                cobrowsingUrl: null, // Placeholder for Replit URL
+            };
+
+            const roomRef = window.firebase.doc(db, `artifacts/${appId}/public/data/jitsi_rooms`, roomNameSlug);
+            await window.firebase.setDoc(roomRef, roomData);
+
+            setNewRoomName('');
+            setActiveRoom(roomNameSlug);
+            setShowRoomView(false); // Switch to Jitsi view
+        } catch (e) {
+            console.error("Error creating room:", e);
+            displayAlert(`Failed to create room: ${e.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [userId, db, newRoomName, displayName]);
+
+    const handleJoinRoom = useCallback(async (roomId) => {
+        if (!userId || !db) {
+            displayAlert("Authentication not complete. Please wait a moment.");
+            return;
+        }
+        setIsLoading(true);
+        try {
+            const roomRef = window.firebase.doc(db, `artifacts/${appId}/public/data/jitsi_rooms`, roomId);
+            await window.firebase.updateDoc(roomRef, {
+                users: window.firebase.arrayUnion(userId),
+                lastActivity: Date.now()
             });
-            broadcastPlaylistUpdate('REMOVE', { id });
-          };
-          const handleShareVideo = (url) => {
-            if (jitsiApi) {
-              try {
-                const videoId = extractYouTubeVideoId(url);
-                if (videoId) {
-                  if (isVideoSharing) stopVideoSharing();
-                  jitsiApi.executeCommand('startShareVideo', url);
-                  setIsVideoSharing(true);
-                  setCurrentSharedVideo(url);
-                  forceAudioMute();
-                } else {
-                  showError('Could not extract video ID from URL');
-                }
-              } catch (error) {
-                console.error('Error sharing video from playlist:', error);
-                showError('Failed to share video. Please make sure you have joined the meeting.');
-              }
-            } else {
-              showError('Please wait for the meeting to load and join first');
+
+            setActiveRoom(roomId);
+            setShowRoomView(false); // Switch to Jitsi view
+        } catch (e) {
+            console.error("Error joining room:", e);
+            displayAlert(`Failed to join room: ${e.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [userId, db]);
+
+    const handleLeaveRoom = useCallback(async () => {
+        if (!activeRoom || !userId || !db) return;
+
+        setIsLoading(true);
+        try {
+            const roomRef = window.firebase.doc(db, `artifacts/${appId}/public/data/jitsi_rooms`, activeRoom);
+            await window.firebase.updateDoc(roomRef, {
+                users: window.firebase.arrayRemove(userId),
+                lastActivity: Date.now()
+            });
+            setActiveRoom(null);
+            setShowRoomView(true); // Return to room list view
+            setShowMap(false);
+            setShowReplitView(false);
+
+            // Clean up: if no users are left, mark as inactive
+            const roomData = rooms.find(r => r.jitsiRoomId === activeRoom);
+            if (roomData && roomData.users.length === 1 && roomData.users[0] === userId) {
+                 await window.firebase.updateDoc(roomRef, { active: false });
             }
-          };
 
-          const extractYouTubeVideoId = (url) => {
-            const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-            const match = url.match(regex);
-            return match ? match[1] : null;
-          };
+        } catch (e) {
+            console.error("Error leaving room:", e);
+            displayAlert(`Failed to leave room: ${e.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [activeRoom, userId, db, rooms]);
 
-          const handleDragStart = (e, video) => {
-            setDraggedItem(video);
-            e.dataTransfer.effectAllowed = "move";
-          };
-          const handleDragOver = (e) => e.preventDefault();
+    const handleJitsiConferenceJoined = useCallback(() => {
+        console.log("Jitsi Conference Joined");
+        setIsLoading(false); // Make sure loading stops after join
+    }, []);
 
-          const handleDrop = (e, targetVideo) => {
-            e.preventDefault();
-            if (!draggedItem || draggedItem.id === targetVideo.id) return;
-            const oldIndex = playlist.findIndex(item => item.id === draggedItem.id);
-            const newIndex = playlist.findIndex(item => item.id === targetVideo.id);
-            if (oldIndex === -1 || newIndex === -1) return;
-            const newPlaylist = [...playlist];
-            newPlaylist.splice(oldIndex, 1);
-            newPlaylist.splice(newIndex, 0, draggedItem);
-            setPlaylist(newPlaylist);
-            storePlaylistLocally(newPlaylist);
-            broadcastPlaylistUpdate('REORDER', newPlaylist);
-            setDraggedItem(null);
-          };
-          const handleDragEnd = () => setDraggedItem(null);
-          const filteredPlaylist = playlist.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
+    const handleJitsiConferenceLeft = useCallback(() => {
+        console.log("Jitsi Conference Left by event");
+        // Only handle if the user didn't intentionally click 'Leave' inside the app logic
+        if (activeRoom) {
+            handleLeaveRoom();
+        }
+    }, [activeRoom, handleLeaveRoom]);
 
-          // Determine which panel is currently open
-          const isPanelOpen = showPlaylist || showMap || showReplitView;
+    const handleDeleteRoom = useCallback(async (roomId) => {
+        if (!db || !userId) return;
 
-          return (
-            <div className="h-screen w-screen flex flex-col bg-green-950 text-white overflow-hidden font-sans">
-              <header className="bg-green-900 px-4 py-2 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
-                <div className="flex items-center justify-between w-full md:w-auto mb-2 md:mb-0">
-                  <div className="flex items-center md:hidden gap-2">
-                    <Button onClick={() => togglePanel('playlist')} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title={`Videos (${playlist.length})`}>
-                      {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
-                    </Button>
-                    <Button onClick={() => togglePanel('map')} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title="Show Map">
-                      {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
-                    </Button>
-                    <Button onClick={() => togglePanel('replit')} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title="Show Replit Stream">
-                      {showReplitView ? <X className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
-                    </Button>
-                  </div>
+        const roomToDelete = rooms.find(r => r.jitsiRoomId === roomId);
+
+        if (roomToDelete && roomToDelete.creatorId === userId) {
+            if (window.confirm(`Are you sure you want to permanently delete the room: ${roomToDelete.name}?`)) {
+                try {
+                    await window.firebase.deleteDoc(window.firebase.doc(db, `artifacts/${appId}/public/data/jitsi_rooms`, roomId));
+                    displayAlert(`Room "${roomToDelete.name}" deleted successfully.`);
+                    if (activeRoom === roomId) {
+                         setActiveRoom(null);
+                         setShowRoomView(true);
+                    }
+                } catch (e) {
+                    console.error("Error deleting room:", e);
+                    displayAlert(`Failed to delete room: ${e.message}`);
+                }
+            }
+        } else {
+            displayAlert("You can only delete rooms you created.");
+        }
+    }, [db, userId, rooms, activeRoom]);
+
+
+    const handleAnalyzeMapPrompt = async () => {
+        if (!mapSearchPrompt.trim()) {
+            setLlmSearchQueries([]);
+            return;
+        }
+
+        setIsAnalyzing(true);
+        try {
+            const queries = await analyzeMapPrompt(mapSearchPrompt.trim());
+            setLlmSearchQueries(queries);
+        } catch (e) {
+            displayAlert("Map analysis failed due to an API error.");
+            setLlmSearchQueries(["Error during analysis."]);
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    // Placeholder Components for Enhanced Functionality
+    const EnhancedFreeMap = () => (
+        <Card className="w-full h-full flex flex-col min-h-[300px]">
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                <MapPin className="w-5 h-5 mr-2 text-lime-400" /> Interactive Map Simulation (Not Real)
+            </h3>
+            <p className="text-sm text-gray-400 mb-4">
+                This is an interactive area to sketch or share map concepts. In a full implementation, this would be a synchronized map library (like Leaflet or Google Maps) shared with all users in the room.
+            </p>
+             <div className="flex-grow bg-green-950 rounded-xl border border-green-700 p-4 flex items-center justify-center">
+                <div className="text-center text-gray-500">
+                    <MapPin className="w-10 h-10 mx-auto mb-2" />
+                    <p>Map Placeholder - Imagine a shared, interactive map here.</p>
                 </div>
-
-                <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-                  <div className="flex items-center gap-2 w-full md:w-auto">
-                    <input
-                      type="text"
-                      placeholder="Paste YouTube URL..."
-                      value={videoUrl}
-                      onChange={(e) => setVideoUrl(e.target.value)}
-                      className={`flex-1 min-w-0 px-4 py-2 rounded-lg bg-amber-400 text-sm text-gray-900 placeholder-gray-900/70 border border-amber-600 focus:border-amber-700 focus:ring-1 focus:ring-amber-700 transition-colors`}
-                      onKeyPress={(e) => { if (e.key === 'Enter') shareVideoDirectly(); }}
-                      disabled={isInitializing || isLoadingVideoTitle}
-                    />
-                    {!isVideoSharing ? (
-                      <Button
-                        onClick={shareVideoDirectly}
-                        className={`${videoUrl.trim() ? 'bg-amber-500 hover:bg-amber-600' : 'bg-amber-600 cursor-not-allowed'} transition-colors text-gray-900`}
-                        disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}
-                      >
-                        Share
-                      </Button>
-                    ) : (
-                      <Button onClick={stopVideoSharing} className="bg-rose-600 hover:bg-rose-700 transition-colors text-white" disabled={isInitializing}>
-                        Stop
-                      </Button>
-                    )}
-                    <Button onClick={addToPlaylist} className="bg-amber-500 hover:bg-amber-600 text-gray-900 transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
-                      {isLoadingVideoTitle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                  <div className="hidden md:flex items-center gap-2">
-                    <Button onClick={() => togglePanel('playlist')} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title={`Videos (${playlist.length})`}>
-                      {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
-                    </Button>
-                    <Button onClick={() => togglePanel('map')} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title="Show Map">
-                      {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
-                    </Button>
-                     <Button onClick={() => togglePanel('replit')} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title="Show Replit Stream">
-                      {showReplitView ? <X className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
-                    </Button>
-                  </div>
-                </div>
-              </header>
-
-              <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
-                <div className="w-full h-full bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl">
-                  {isInitializing && (
-                    <div className="w-full h-full flex items-center justify-center bg-green-950">
-                      <div className="text-center">
-                        <Loader2 className="w-12 h-12 animate-spin text-white mx-auto mb-4" />
-                        <p className="text-xl font-medium">Initializing meeting...</p>
-                        <p className="text-gray-400 text-sm mt-1">Please wait while we set up your conference</p>
-                      </div>
-                    </div>
-                  )}
-                  <div
-                    ref={jitsiContainerRef}
-                    id="jitsi-container"
-                    className="w-full h-full flex-1 min-h-0"
-                    style={{
-                      minHeight: '400px',
-                      display: isInitializing ? 'none' : 'block',
-                    }}
-                  />
-                </div>
-
-                {isPanelOpen && (
-                  <div className={`
-                    fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 bg-green-800 border-t md:border-l border-green-700 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
-                    ${showMap || showReplitView ? 'md:w-1/2' : 'md:w-[400px]'}
-                  `}>
-                    {showPlaylist && (
-                      <div className="flex flex-col h-full">
-                        <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
-                          <h2 className="text-lg font-semibold">Video Playlist ({playlist.length})</h2>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              placeholder="Search videos..."
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                              className="w-48 px-3 py-1 rounded-lg bg-green-700 text-sm placeholder-gray-300 border border-green-600 focus:border-lime-500 focus:outline-none pl-8"
-                            />
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
-                          </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                          {filteredPlaylist.length === 0 ? (
-                            <div className="text-gray-400 text-center py-8">
-                              <List className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                              <p>No videos found</p>
-                              <p className="text-sm">Add YouTube URLs or try a different search term.</p>
-                            </div>
-                          ) : (
-                            filteredPlaylist.map((video) => (
-                              <div
-                                key={video.id}
-                                className={`
-                                  bg-green-700/50 rounded-xl p-3 shadow-md
-                                  flex items-center gap-4 cursor-grab
-                                  active:cursor-grabbing transform transition-all duration-150
-                                  ${draggedItem?.id === video.id ? 'opacity-50 scale-95 ring-2 ring-lime-500' : ''}
-                                  ${currentSharedVideo === video.url ? 'border-l-4 border-lime-500' : 'border-l-4 border-transparent'}
-                                `}
-                                draggable
-                                onDragStart={(e) => handleDragStart(e, video)}
-                                onDragOver={handleDragOver}
-                                onDrop={(e) => handleDrop(e, video)}
-                                onDragEnd={handleDragEnd}
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <h3 className="font-medium text-sm leading-tight text-white">{video.title}</h3>
-                                </div>
-                                <div className="flex-shrink-0 flex items-center gap-2 ml-4">
-                                  {currentSharedVideo === video.url ? (
-                                    <Button onClick={stopVideoSharing} variant="ghost" size="icon" className="text-rose-400 hover:bg-rose-400/20" title="Stop this video" disabled={isInitializing}>
-                                      <X className="w-4 h-4" />
-                                    </Button>
-                                  ) : (
-                                    <Button onClick={() => handleShareVideo(video.url)} variant="ghost" size="icon" className="text-emerald-400 hover:bg-emerald-400/20" title="Play this video now" disabled={isInitializing}>
-                                      <Play className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                  <Button onClick={() => removeFromPlaylist(video.id)} variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-700/20" title="Remove from playlist" disabled={isInitializing}>
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {showMap && <EnhancedFreeMap />}
-                    {showReplitView && <ReplitCoBrowsingView />}
-
-                  </div>
-                )}
-              </div>
-
-              {showErrorModal && (
-                <div className="fixed inset-0 bg-green-950/75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-                  <div className="bg-green-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-green-700">
-                    <div className="flex justify-between items-center mb-4">
-                      <div className="flex items-center">
-                        <AlertCircle className="w-6 h-6 text-lime-500 mr-3" />
-                        <h2 className="text-white text-xl font-semibold">Error</h2>
-                      </div>
-                      <Button onClick={() => setShowErrorModal(false)} variant="ghost" size="icon" className="text-gray-400 hover:bg-green-700">
-                        <X className="w-5 h-5" />
-                      </Button>
-                    </div>
-                    <p className="text-sm text-gray-400 mb-4">
-                      {errorMessage}
-                    </p>
-                    <div className="mt-6 flex justify-end">
-                      <Button onClick={() => setShowErrorModal(false)} className="bg-lime-600 hover:bg-lime-700 text-white">
-                        Close
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
-          );
-        }
 
-        ReactDOM.render(<App />, document.getElementById('root'));
-    </script>
-</body>
-</html>
+            <div className="mt-4">
+                <h4 className="text-lg font-semibold text-white mb-2">Map Search Assistant (Gemini)</h4>
+                <div className="flex space-x-2 mb-2">
+                    <Input
+                        value={mapSearchPrompt}
+                        onChange={(e) => setMapSearchPrompt(e.target.value)}
+                        placeholder="e.g., 'Find the best routes in the Alps' or 'Videos about urban planning in Tokyo'"
+                        className="flex-grow"
+                        disabled={isAnalyzing}
+                    />
+                    <Button onClick={handleAnalyzeMapPrompt} disabled={isAnalyzing} className="bg-lime-600 hover:bg-lime-700">
+                        {isAnalyzing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+                    </Button>
+                </div>
+                {llmSearchQueries.length > 0 && (
+                    <div className="mt-2 p-3 bg-green-900 rounded-lg text-sm">
+                        <p className="text-lime-300 font-medium mb-1">Suggested Searches:</p>
+                        <div className="flex flex-wrap gap-2">
+                            {llmSearchQueries.map((query, index) => (
+                                <a
+                                    key={index}
+                                    href={`https://www.google.com/search?q=${encodeURIComponent(query)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1 bg-green-700 text-gray-200 rounded-full hover:bg-green-600 transition duration-150 flex items-center"
+                                >
+                                    <Search className="w-3 h-3 mr-1" />
+                                    {query}
+                                </a>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </Card>
+    );
+
+    const ReplitCoBrowsingView = () => {
+        // Placeholder for a Replit URL shared via Firestore or input
+        const [replitUrl, setReplitUrl] = useState('');
+        const [isInputVisible, setIsInputVisible] = useState(false);
+        const [iframeLoaded, setIframeLoaded] = useState(false);
+
+        const handleSetUrl = () => {
+             if (replitUrl.trim()) {
+                 setIframeLoaded(false); // Reset loading state
+                 // In a real app, this URL would be saved to Firestore for all users
+             }
+             setIsInputVisible(false);
+        };
+
+        const currentUrl = replitUrl.startsWith('http') ? replitUrl : `https://${replitUrl}`;
+
+        return (
+            <Card className="w-full h-full flex flex-col min-h-[300px]">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold text-white flex items-center">
+                         <ScreenShare className="w-5 h-5 mr-2 text-lime-400" /> Co-Browsing View (Replit)
+                    </h3>
+                    <Button
+                        onClick={() => setIsInputVisible(!isInputVisible)}
+                        variant="secondary"
+                        size="sm"
+                        className="bg-green-700 hover:bg-green-600 text-white"
+                        title="Change Co-Browsing URL"
+                    >
+                        <Monitor className="w-4 h-4 mr-2" /> {isInputVisible ? 'Hide Input' : 'Edit URL'}
+                    </Button>
+                </div>
+
+                {isInputVisible && (
+                    <div className="flex space-x-2 mb-4">
+                        <Input
+                            value={replitUrl}
+                            onChange={(e) => setReplitUrl(e.target.value)}
+                            placeholder="Enter Replit URL (e.g., replit.com/@user/project)"
+                            className="flex-grow"
+                        />
+                        <Button onClick={handleSetUrl} className="bg-amber-500 hover:bg-amber-600">
+                            Set
+                        </Button>
+                    </div>
+                )}
+
+                {replitUrl ? (
+                    <div className="flex-grow relative rounded-xl overflow-hidden border border-green-700">
+                        {!iframeLoaded && (
+                            <div className="absolute inset-0 bg-green-950/75 flex items-center justify-center text-white z-10">
+                                <Loader2 className="w-8 h-8 mr-2 animate-spin text-lime-400" />
+                                Loading Co-Browsing Target...
+                            </div>
+                        )}
+                        {/* Note: Embedding external sites like Replit may be blocked by CSP/X-Frame-Options in some environments */}
+                        <iframe
+                            src={currentUrl}
+                            title="Replit Co-Browsing"
+                            className="w-full h-full bg-white"
+                            onLoad={() => setIframeLoaded(true)}
+                            onError={() => {
+                                setIframeLoaded(true);
+                                displayAlert("Failed to load the co-browsing URL. Check if the URL is correct or if embedding is allowed.");
+                            }}
+                        />
+                    </div>
+                ) : (
+                    <div className="flex-grow bg-green-950 rounded-xl border border-green-700 p-4 flex items-center justify-center text-center text-gray-500">
+                        <p>Enter a Replit or other live collaboration URL above to share it with your meeting.</p>
+                    </div>
+                )}
+            </Card>
+        );
+    };
+
+
+    // --- Render Logic ---
+
+    // Handle initial loading and user display name input
+    if (!isAuthReady || isLoading) {
+        return (
+            <div className="min-h-screen bg-green-950 flex items-center justify-center p-4">
+                <div className="flex items-center text-lime-400">
+                    <Loader2 className="w-6 h-6 mr-3 animate-spin" />
+                    <p>Connecting to Collaboration Service...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!displayName) {
+        return (
+            <div className="min-h-screen bg-green-950 flex items-center justify-center p-4">
+                <Card className="w-full max-w-sm text-center">
+                    <h1 className="text-2xl font-bold text-white mb-6">Welcome to Jitsi Map App</h1>
+                    <p className="text-gray-300 mb-4">What's your name for the meeting?</p>
+                    <Input
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder="Your Display Name"
+                        className="mb-4"
+                    />
+                    <Button onClick={() => displayName.trim() && setDisplayName(displayName.trim())} disabled={!displayName.trim()} className="w-full">
+                        Start Collaboration
+                    </Button>
+                </Card>
+            </div>
+        );
+    }
+
+    const currentRoomData = rooms.find(r => r.jitsiRoomId === activeRoom);
+
+    return (
+        <div className="min-h-screen bg-green-950 font-sans text-white flex flex-col">
+            <header className="p-4 bg-green-900 shadow-lg border-b border-green-700 flex justify-between items-center sticky top-0 z-10">
+                <h1 className="text-xl font-bold text-lime-400 flex items-center">
+                    <MapPin className="w-6 h-6 mr-2" />
+                    Jitsi Map App
+                </h1>
+                <div className="flex items-center space-x-4">
+                    <span className="text-sm text-gray-400 hidden sm:inline">
+                        Signed in as: <span className="font-medium text-lime-300">{displayName}</span>
+                    </span>
+                    <span className="text-xs text-gray-500 font-mono hidden md:inline">
+                        User ID: {userId}
+                    </span>
+                    {activeRoom && (
+                        <Button onClick={handleLeaveRoom} variant="destructive" size="sm">
+                            <X className="w-4 h-4 mr-2" />
+                            Leave Room
+                        </Button>
+                    )}
+                </div>
+            </header>
+
+            <main className="flex-grow p-4 lg:p-8">
+                {activeRoom ? (
+                    <div className="grid lg:grid-cols-3 gap-6 h-full min-h-[calc(100vh-10rem)]">
+                        {/* Jitsi Video Panel (Col 1 & 2 on large screens) */}
+                        <div className={`lg:col-span-2 ${showRoomView || showMap || showReplitView ? 'hidden lg:block' : 'block'}`}>
+                            <JitsiMeet
+                                roomName={activeRoom}
+                                displayName={displayName}
+                                onConferenceJoined={handleJitsiConferenceJoined}
+                                onConferenceLeft={handleJitsiConferenceLeft}
+                            />
+                        </div>
+
+                        {/* Right Sidebar / Focused View */}
+                        <div className={`lg:col-span-1 flex flex-col space-y-4 h-full ${showRoomView ? 'hidden lg:block' : 'block'}`}>
+
+                            <Card className="p-4">
+                                <h3 className="text-lg font-bold text-white mb-3">
+                                    Room: <span className="text-lime-400">{currentRoomData?.name || activeRoom}</span>
+                                </h3>
+                                <div className="flex flex-wrap gap-2 mb-3">
+                                    <Button
+                                        onClick={() => { setShowRoomView(false); setShowMap(false); setShowReplitView(false); }}
+                                        variant={!showRoomView && !showMap && !showReplitView ? 'default' : 'secondary'}
+                                        size="sm"
+                                    >
+                                        <Play className="w-4 h-4 mr-2" /> Video Call
+                                    </Button>
+                                    <Button
+                                        onClick={() => { setShowRoomView(false); setShowMap(true); setShowReplitView(false); }}
+                                        variant={showMap ? 'default' : 'secondary'}
+                                        size="sm"
+                                    >
+                                        <MapPin className="w-4 h-4 mr-2" /> Shared Map
+                                    </Button>
+                                     <Button
+                                        onClick={() => { setShowRoomView(false); setShowMap(false); setShowReplitView(true); }}
+                                        variant={showReplitView ? 'default' : 'secondary'}
+                                        size="sm"
+                                    >
+                                        <ScreenShare className="w-4 h-4 mr-2" /> Co-Browsing
+                                    </Button>
+                                </div>
+
+                                {currentRoomData && (
+                                    <div className="text-sm text-gray-400 mt-2">
+                                        <p>Users Active: <span className="text-lime-300">{currentRoomData.users.length}</span></p>
+                                        <p>Created by: <span className="text-lime-300">{currentRoomData.creatorName}</span></p>
+                                    </div>
+                                )}
+                            </Card>
+
+
+                            {showMap && <EnhancedFreeMap />}
+                            {showReplitView && <ReplitCoBrowsingView />}
+
+                            {/* Mobile Back Button for Side Views */}
+                             {(showMap || showReplitView) && (
+                                 <Button
+                                     onClick={() => { setShowMap(false); setShowReplitView(false); }}
+                                     variant="outline"
+                                     className="lg:hidden w-full mt-4 border-green-500 text-green-500"
+                                 >
+                                    <ChevronDown className="w-4 h-4 mr-2" /> Back to Video
+                                 </Button>
+                             )}
+                        </div>
+
+                        {/* Full-screen fallbacks for Mobile if Jitsi view is hidden */}
+                         {(showMap || showReplitView) && (
+                            <div className="lg:hidden col-span-3">
+                                {showMap && <EnhancedFreeMap />}
+                                {showReplitView && <ReplitCoBrowsingView />}
+                            </div>
+                        )}
+                    </div>
+
+                ) : (
+                    // Room Listing View
+                    <Card className="w-full max-w-4xl mx-auto p-6">
+                        <h2 className="text-3xl font-bold text-lime-400 mb-6 flex items-center">
+                            <List className="w-7 h-7 mr-3" /> Active Rooms
+                        </h2>
+
+                        {/* Create New Room Section */}
+                        <div className="mb-8 p-4 bg-green-900/70 rounded-xl border border-green-700">
+                            <h3 className="text-xl font-semibold text-white mb-3 flex items-center">
+                                <Plus className="w-5 h-5 mr-2" /> Create New Room
+                            </h3>
+                            <div className="flex space-x-3">
+                                <Input
+                                    value={newRoomName}
+                                    onChange={(e) => setNewRoomName(e.target.value)}
+                                    placeholder="Enter a descriptive room name (e.g., 'Project X Planning')"
+                                    className="flex-grow"
+                                    disabled={isLoading}
+                                />
+                                <Button onClick={handleCreateRoom} disabled={isLoading || !newRoomName.trim()} className="bg-lime-600 hover:bg-lime-700">
+                                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5 mr-2" />}
+                                    Create & Join
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Room List */}
+                        <h3 className="text-2xl font-semibold text-white mb-4">Join an Existing Session ({rooms.length})</h3>
+                        <div className="space-y-4">
+                            {rooms.length === 0 ? (
+                                <p className="text-gray-500 p-4 border border-green-800 rounded-xl bg-green-900/50">
+                                    No active rooms found. Be the first to create one!
+                                </p>
+                            ) : (
+                                rooms.map((room) => (
+                                    <div key={room.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-green-900 rounded-xl shadow-md border border-green-700 hover:border-lime-500 transition duration-200">
+                                        <div className="mb-2 sm:mb-0">
+                                            <p className="text-lg font-semibold text-lime-300">{room.name}</p>
+                                            <p className="text-xs text-gray-400">
+                                                Created by: {room.creatorName} • Users: {room.users.length}
+                                            </p>
+                                        </div>
+                                        <div className="flex space-x-2">
+                                            <Button onClick={() => handleJoinRoom(room.jitsiRoomId)} variant="secondary">
+                                                <Play className="w-4 h-4 mr-2" /> Join
+                                            </Button>
+                                            {room.creatorId === userId && (
+                                                <Button
+                                                    onClick={() => handleDeleteRoom(room.jitsiRoomId)}
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-red-400 hover:bg-red-900/50"
+                                                    title="Delete Room"
+                                                >
+                                                    <Trash2 className="w-5 h-5" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </Card>
+                )}
+            </main>
+
+            {showErrorModal && (
+                <div className="fixed inset-0 bg-green-950/75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+                    <div className="bg-green-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-green-700">
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center">
+                                <AlertCircle className="w-6 h-6 text-lime-500 mr-3" />
+                                <h2 className="text-white text-xl font-semibold">Error</h2>
+                            </div>
+                            <Button onClick={() => setShowErrorModal(false)} variant="ghost" size="icon" className="text-gray-400 hover:bg-green-700/50">
+                                <X className="w-5 h-5" />
+                            </Button>
+                        </div>
+                        <p className="text-sm text-gray-400 mb-4">
+                            {errorMessage}
+                        </p>
+                        <div className="mt-6 flex justify-end">
+                            <Button onClick={() => setShowErrorModal(false)} className="bg-lime-600 hover:bg-lime-700 text-white">
+                                Close
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default App;
