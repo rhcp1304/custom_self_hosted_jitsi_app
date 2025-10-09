@@ -3,10 +3,11 @@ import {
   MapPin, X, List, Plus, Play, Trash2, Loader2, Search, ChevronDown, AlertCircle, Monitor, ScreenShare,
 } from 'lucide-react';
 
-// --- INLINE UI COMPONENT REPLACEMENTS ---
+// --- INLINE UI COMPONENT REPLACEMENTS (Ensuring self-contained file) ---
 
-// Simplified Button Component (to replace external import)
+// Simplified Button Component
 const Button = ({ children, onClick, className = '', variant = 'default', size = 'default', disabled = false, title = '' }) => {
+    // Reverting to stable, visible blue/gray colors
     let baseStyle = 'inline-flex items-center justify-center rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none shadow-md';
     let variantStyle = '';
     let sizeStyle = '';
@@ -19,7 +20,7 @@ const Button = ({ children, onClick, className = '', variant = 'default', size =
             variantStyle = 'border border-blue-500 text-blue-500 hover:bg-blue-500/10';
             break;
         default:
-            variantStyle = 'bg-blue-600 text-white hover:bg-blue-700';
+            variantStyle = 'bg-blue-600 text-white hover:bg-blue-700'; // Default button is blue
     }
 
     switch (size) {
@@ -45,7 +46,7 @@ const Button = ({ children, onClick, className = '', variant = 'default', size =
     );
 };
 
-// Stub for EnhancedFreeMap (since its implementation was not provided)
+// Stub for EnhancedFreeMap
 const EnhancedFreeMap = () => (
     <div className="p-4 flex items-center justify-center h-full bg-gray-900">
         <div className="text-center text-gray-400">
@@ -60,9 +61,9 @@ const EnhancedFreeMap = () => (
 
 function App() {
   const [showMap, setShowMap] = useState(false);
-  const [showCobrowsing, setShowCobrowsing] = useState(false); // NEW STATE
-  const [cobrowsingUrl, setCobrowsingUrl] = useState('https://www.google.com/search?q=Lenskart+Eyewear'); // NEW STATE: Default URL
-  const [cobrowsingInput, setCobrowsingInput] = useState('https://www.google.com/search?q=Lenskart+Eyewear'); // NEW STATE: Input field value
+  const [showCobrowsing, setShowCobrowsing] = useState(false);
+  const [cobrowsingUrl, setCobrowsingUrl] = useState('https://www.google.com/search?q=Lenskart+Eyewear');
+  const [cobrowsingInput, setCobrowsingInput] = useState('https://www.google.com/search?q=Lenskart+Eyewear');
   const [videoUrl, setVideoUrl] = useState('');
   const [isVideoSharing, setIsVideoSharing] = useState(false);
   const [currentSharedVideo, setCurrentSharedVideo] = useState('');
@@ -96,7 +97,6 @@ function App() {
 
   const fetchYouTubeVideoTitle = async (videoUrl) => {
     try {
-      // Using noembed.com to fetch titles, but this is a stub and might fail in a real environment
       const response = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(videoUrl)}`);
       if (response.ok) {
         const data = await response.json();
@@ -145,19 +145,16 @@ function App() {
     const jsonMessage = JSON.stringify(message);
 
     try {
-      // Try to send via data channels (better for structured data)
       jitsiApi.executeCommand('sendEndpointTextMessage', '', jsonMessage);
     } catch (error) {
       console.log('Data channel failed, trying chat:', error);
       try {
-        // Fallback to chat channel
         const chatMessage = `[PLAYLIST_SYNC] ${jsonMessage}`;
         jitsiApi.executeCommand('sendChatMessage', chatMessage);
       } catch (error) {
         console.log('Chat method also failed:', error);
       }
     }
-    // Store locally to self-synchronize on refresh/rejoin
     storePlaylistLocally(action === 'FULL_SYNC' ? data : playlist);
     setSyncStatus('syncing');
   };
@@ -165,7 +162,6 @@ function App() {
   const handleIncomingMessage = (messageData) => {
     try {
       let message;
-      // Handle both endpointTextMessageReceived (direct JSON string) and incomingMessage (object with data/message)
       if (typeof messageData === 'string') {
         if (messageData.startsWith('[PLAYLIST_SYNC]')) {
           message = JSON.parse(messageData.replace('[PLAYLIST_SYNC]', '').trim());
@@ -182,19 +178,19 @@ function App() {
          if (messageData.message.startsWith('[PLAYLIST_SYNC]')) {
           message = JSON.parse(messageData.message.replace('[PLAYLIST_SYNC]', '').trim());
         } else {
-            return; // Ignore non-playlist messages from chat
+            return;
         }
       } else {
         return;
       }
 
-      if (message.participantId === participantId) return; // Ignore messages from self
+      if (message.participantId === participantId) return;
 
       if (message.type === 'PLAYLIST_SYNC') {
         switch (message.action) {
           case 'ADD':
             setPlaylist((prev) => {
-              const exists = prev.find((video) => video.url === message.data.url); // Use URL for better deduplication
+              const exists = prev.find((video) => video.url === message.data.url);
               if (!exists) {
                 const newPlaylist = [...prev, message.data];
                 storePlaylistLocally(newPlaylist);
@@ -219,7 +215,6 @@ function App() {
             storePlaylistLocally(message.data);
             break;
           case 'REQUEST_SYNC':
-              // If another participant requests a sync, respond with the current playlist
               if (playlist.length > 0) {
                   broadcastPlaylistUpdate('FULL_SYNC', playlist);
               }
@@ -238,26 +233,23 @@ function App() {
     if (syncIntervalRef.current) {
       clearInterval(syncIntervalRef.current);
     }
-    // Set up a periodic check for sync requests and local storage data
     syncIntervalRef.current = setInterval(() => {
       if (jitsiApi && participantId) {
-        // Broadcast a request for sync (if the local playlist is empty or stale)
         if (playlist.length === 0 || Date.now() - (getLocalPlaylist()?.timestamp || 0) > 60000) {
             broadcastPlaylistUpdate('REQUEST_SYNC', null);
         }
 
         const localData = getLocalPlaylist();
-        // Check local storage for a fresh playlist from another participant
         if (localData && localData.participantId !== participantId) {
           const timeDiff = Date.now() - localData.timestamp;
-          if (timeDiff < 10000) { // Sync if local data is less than 10 seconds old
+          if (timeDiff < 10000) {
             setPlaylist(localData.playlist);
             setIsPlaylistSynced(true);
             setSyncStatus('connected');
           }
         }
       }
-    }, 5000); // Check every 5 seconds
+    }, 5000);
   };
 
   const muteJitsiSharedVideo = () => {
@@ -265,7 +257,6 @@ function App() {
       const jitsiVideoContainer = jitsiContainerRef.current;
       if (!jitsiVideoContainer) return;
 
-      // 1. Mute YouTube IFRAME (using postMessage and direct properties)
       const videoIframes = jitsiVideoContainer.querySelectorAll('iframe');
       videoIframes.forEach(iframe => {
         if (iframe.src.includes('youtube.com')) {
@@ -279,7 +270,6 @@ function App() {
         }
       });
 
-      // 2. Mute local HTML video elements (e.g., screen share videos)
       const allVideos = jitsiVideoContainer.querySelectorAll('video');
       allVideos.forEach(element => {
         if (!element.muted) {
@@ -302,7 +292,6 @@ function App() {
   const forceAudioMute = () => {
       stopMutingInterval();
       muteJitsiSharedVideo();
-      // Continuously check and mute because Jitsi might dynamically add/replace iframes/videos
       muteIntervalRef.current = setInterval(muteJitsiSharedVideo, 500);
       setAudioMuted(true);
   };
@@ -317,7 +306,6 @@ function App() {
       setSyncStatus('disconnected');
 
       try {
-          // Clean up previous instance
           if (jitsiContainerRef.current) {
               while (jitsiContainerRef.current.firstChild) {
                   jitsiContainerRef.current.removeChild(jitsiContainerRef.current.firstChild);
@@ -332,8 +320,6 @@ function App() {
               parentNode: jitsiContainerRef.current,
               width: '100%',
               height: '100%',
-              // JITSI INSTANCE CONFIGURATION: CONFIRMED FOR 'meet-nso.diq.geoiq.ai'
-              // Note: domain is passed in the JitsiMeetExternalAPI constructor below.
               configOverwrite: {
                   startWithAudioMuted: true,
                   startWithVideoMuted: true,
@@ -366,7 +352,7 @@ function App() {
               },
           };
 
-          // JITSI INSTANCE DOMAIN: 'meet-nso.diq.geoiq.ai'
+          // Confirmed Jitsi Instance
           const api = new window.JitsiMeetExternalAPI('meet-nso.diq.geoiq.ai', config);
           const newParticipantId = generateParticipantId();
           setParticipantId(newParticipantId);
@@ -375,7 +361,6 @@ function App() {
               setSyncStatus('connected');
               setTimeout(() => {
                   startPeriodicSync();
-                  // Initiate a full sync only if a local playlist exists, otherwise request one
                   const localData = getLocalPlaylist();
                   if (localData && localData.playlist.length > 0) {
                       broadcastPlaylistUpdate('FULL_SYNC', localData.playlist);
@@ -386,7 +371,6 @@ function App() {
           });
 
           api.addEventListener('participantJoined', (event) => {
-              // When a participant joins, broadcast the current playlist to them
               setTimeout(() => {
                   if (playlist.length > 0) {
                       broadcastPlaylistUpdate('FULL_SYNC', playlist);
@@ -394,13 +378,10 @@ function App() {
               }, 1000);
           });
 
-          // Listeners for playlist sync messages
           api.addEventListener('endpointTextMessageReceived', (event) => {
-              // event.data is the JSON string
               if (event.data) handleIncomingMessage(event.data);
           });
           api.addEventListener('incomingMessage', (event) => {
-              // event.message is the chat message string (used as fallback for sync)
               if (event.message && event.message.includes('[PLAYLIST_SYNC]')) {
                   handleIncomingMessage(event.message);
               }
@@ -417,7 +398,6 @@ function App() {
               setAudioMuted(false);
           });
 
-          // Wait until API is ready to receive commands
           await new Promise((resolve) => {
               const checkReady = () => {
                   if (api.isAudioMuted !== undefined) resolve();
@@ -466,11 +446,9 @@ function App() {
   };
 
   const initializeJitsiOnLoad = () => {
-    // JITSI SCRIPT URL: 'meet-nso.diq.geoiq.ai'
     const jitsiScriptUrl = `https://meet-nso.diq.geoiq.ai/external_api.js?v=${Date.now()}`;
     const existingScript = document.querySelector(`script[src^="https://meet-nso.diq.geoiq.ai/external_api.js"]`);
 
-    // Remove the old script to ensure the new one loads
     if (existingScript) {
         existingScript.remove();
     }
@@ -489,13 +467,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // Observer to force-mute any new video/iframe elements added by Jitsi
     if (!jitsiContainerRef.current) return;
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.type === 'childList') {
           mutation.addedNodes.forEach((node) => {
-            // Check for iframes (shared video) or video elements (screen share)
             if (node.tagName === 'IFRAME' || (node.querySelector && node.querySelector('iframe')) || node.tagName === 'VIDEO') {
               forceAudioMute();
             }
@@ -507,7 +483,6 @@ function App() {
     return () => { observer.disconnect(); };
   }, [jitsiContainerRef]);
 
-  // --- PANEL TOGGLE LOGIC (UPDATED) ---
   const toggleMap = () => {
     setShowMap(!showMap);
     if (showPlaylist) setShowPlaylist(false);
@@ -525,7 +500,6 @@ function App() {
     if (showMap) setShowMap(false);
     if (showPlaylist) setShowPlaylist(false);
   };
-  // --- END PANEL TOGGLE LOGIC ---
 
   const shareVideoDirectly = () => {
     if (jitsiApi && videoUrl) {
@@ -580,7 +554,6 @@ function App() {
 
       } catch (error) {
         console.error('Error adding video to playlist:', error);
-        // Fallback title on failure
         const newVideo = { id: Date.now() + Math.random(), url: videoUrl, videoId: videoId, title: `Video ${playlist.length + 1}`, };
         setPlaylist((prev) => {
           const newPlaylist = [...prev, newVideo];
@@ -661,25 +634,18 @@ function App() {
   const handleDragEnd = () => setDraggedItem(null);
   const filteredPlaylist = playlist.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  // --- NEW COBROWSING LOGIC ---
   const handleCobrowsingInputChange = (e) => {
     setCobrowsingInput(e.target.value);
   };
 
   const handleApplyCobrowsingUrl = () => {
-    const url = cobrowsingInput.trim();
+    let url = cobrowsingInput.trim();
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        setCobrowsingUrl(`https://${url}`);
-        setCobrowsingInput(`https://${url}`);
-    } else {
-        setCobrowsingUrl(url);
+        url = `https://${url}`;
     }
-    // OPTIONAL: Use Jitsi data channels to broadcast the URL change to other participants
-    // if (jitsiApi) {
-    //     broadcastPlaylistUpdate('COBROWSE_URL', { url: cobrowsingUrl });
-    // }
+    setCobrowsingUrl(url);
+    setCobrowsingInput(url);
   };
-  // --- END NEW COBROWSING LOGIC ---
 
 
   return (
@@ -698,7 +664,6 @@ function App() {
             <Button onClick={toggleMap} variant="ghost" size="icon" className="text-red-500 hover:text-red-400" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
             </Button>
-            {/* NEW BUTTON: Toggle Cobrowsing */}
             <Button onClick={toggleCobrowsing} variant="ghost" size="icon" className="text-yellow-500 hover:text-yellow-400" title="Co-browsing">
               {showCobrowsing ? <X className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
             </Button>
@@ -737,7 +702,6 @@ function App() {
             <Button onClick={toggleMap} variant="ghost" size="icon" className="text-red-500 hover:bg-gray-700 hover:text-red-400" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
             </Button>
-            {/* NEW BUTTON: Toggle Cobrowsing */}
             <Button onClick={toggleCobrowsing} variant="ghost" size="icon" className="text-yellow-500 hover:bg-gray-700 hover:text-yellow-400" title="Co-browsing">
               {showCobrowsing ? <X className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
             </Button>
@@ -770,7 +734,7 @@ function App() {
         </div>
 
         {/* Panels Container */}
-        {(showPlaylist || showMap || showCobrowsing) && ( // UPDATED CONDITION
+        {(showPlaylist || showMap || showCobrowsing) && (
           <div className="fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 lg:w-1/3 bg-gray-800 border-t md:border-l border-gray-700 shadow-xl flex flex-col z-20 transition-all duration-300 ease-in-out">
 
             {/* Playlist Panel */}
@@ -849,7 +813,7 @@ function App() {
               </div>
             )}
 
-            {/* NEW COBROWSING PANEL */}
+            {/* COBROWSING PANEL */}
             {showCobrowsing && (
               <div className="flex flex-col h-full">
                 <div className="bg-gray-900 p-4 border-b border-gray-700 flex-shrink-0">
@@ -869,15 +833,14 @@ function App() {
                   </div>
                 </div>
                 <div className="flex-1 min-h-0 relative">
-                  {/* Warning for X-Frame-Options: Many sites prevent loading in an iframe */}
                   <div className="absolute top-0 left-0 right-0 p-2 bg-yellow-900/50 text-yellow-300 text-xs border-b border-yellow-800 flex items-center">
                     <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0" />
-                    <span>Note: Due to security restrictions (X-Frame-Options), many websites (like Google) will not load here. Try a public testing URL.</span>
+                    <span>Note: Many sites will not load here due to security (X-Frame-Options).</span>
                   </div>
                   <iframe
                     src={cobrowsingUrl}
                     title="Co-browsing View"
-                    className="w-full h-full pt-10" // Padded for the warning banner
+                    className="w-full h-full pt-10"
                     allow="clipboard-read; clipboard-write"
                   ></iframe>
                 </div>
