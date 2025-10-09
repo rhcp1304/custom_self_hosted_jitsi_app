@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import {
-  MapPin, X, Youtube, List, Plus, Play, Trash2, Loader2, Search, ChevronDown, AlertCircle,
+  MapPin, X, Youtube, List, Plus, Play, Trash2, Loader2, Search, ChevronDown, AlertCircle, Eye,
 } from 'lucide-react';
 import EnhancedFreeMap from './components/EnhancedFreeMap.jsx';
 import './App.css';
-import LenskartLogo from './logo.png';
+// import LenskartLogo from './logo.png'; // Assuming this is not strictly needed for the functionality
 
 function App() {
   const [showMap, setShowMap] = useState(false);
@@ -25,6 +25,13 @@ function App() {
   const [draggedItem, setDraggedItem] = useState(null);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // --- NEW COBROWSING STATES & CONSTANTS ---
+  const [showCobrowsingPanel, setShowCobrowsingPanel] = useState(false);
+  const COBROWSING_URL = 'https://geo-stream.replit.app/playback/c5eca37c-0e06-47ae-a96e-2ae1623e53fc?roomId=bdhOlu_XJu';
+  const COBROWSING_SYNC_TYPE = 'COBROWSING_SYNC';
+  const PLAYLIST_SYNC_TYPE = 'PLAYLIST_SYNC';
+  // ------------------------------------------
 
   const jitsiContainerRef = useRef(null);
   const [jitsiApi, setJitsiApi] = useState(null);
@@ -74,10 +81,11 @@ function App() {
     return null;
   };
 
-  const broadcastPlaylistUpdate = (action, data) => {
+  // --- REFACTORED: Renamed to broadcastMessage and accepts 'type' ---
+  const broadcastMessage = (type, action, data) => {
     if (!jitsiApi) return;
     const message = {
-      type: 'PLAYLIST_SYNC',
+      type: type,
       action: action,
       data: data,
       participantId: participantId,
@@ -89,36 +97,40 @@ function App() {
       console.log('Data channel failed, trying chat:', error);
     }
     try {
-      const chatMessage = `[PLAYLIST_SYNC] ${JSON.stringify(message)}`;
+      const chatMessage = `[${type}] ${JSON.stringify(message)}`;
       jitsiApi.executeCommand('sendChatMessage', chatMessage);
     } catch (error) {
       console.log('Chat method also failed:', error);
     }
-    storePlaylistLocally(action === 'FULL_SYNC' ? data : playlist);
+
+    // Only store playlist locally if it's a playlist action
+    if (type === PLAYLIST_SYNC_TYPE) {
+      storePlaylistLocally(action === 'FULL_SYNC' ? data : playlist);
+    }
     setSyncStatus('syncing');
   };
+  // -------------------------------------------------------------------
 
   const handleIncomingMessage = (messageData) => {
     try {
       let message;
-      if (typeof messageData === 'string') {
-        if (messageData.startsWith('[PLAYLIST_SYNC]')) {
-          message = JSON.parse(messageData.replace('[PLAYLIST_SYNC]', '').trim());
-        } else {
-          message = JSON.parse(messageData);
-        }
-      } else if (messageData.data) {
-        if (messageData.data.startsWith('[PLAYLIST_SYNC]')) {
-          message = JSON.parse(messageData.data.replace('[PLAYLIST_SYNC]', '').trim());
-        } else {
+      let messageContent = typeof messageData === 'string' ? messageData : messageData.data;
+      if (!messageContent) return;
+
+      if (messageContent.startsWith(`[${PLAYLIST_SYNC_TYPE}]`)) {
+          message = JSON.parse(messageContent.replace(`[${PLAYLIST_SYNC_TYPE}]`, '').trim());
+      } else if (messageContent.startsWith(`[${COBROWSING_SYNC_TYPE}]`)) {
+          message = JSON.parse(messageContent.replace(`[${COBROWSING_SYNC_TYPE}]`, '').trim());
+      } else if (typeof messageData.data === 'string' && messageData.data.startsWith('{')) {
+          // Fallback for endpointTextMessageReceived
           message = JSON.parse(messageData.data);
-        }
       } else {
         return;
       }
-      if (message.participantId === participantId) return;
 
-      if (message.type === 'PLAYLIST_SYNC') {
+      if (!message || message.participantId === participantId) return;
+
+      if (message.type === PLAYLIST_SYNC_TYPE) {
         switch (message.action) {
           case 'ADD':
             setPlaylist((prev) => {
@@ -151,6 +163,18 @@ function App() {
         setSyncStatus('connected');
       }
 
+      // --- NEW COBROWSING SYNC HANDLING ---
+      if (message.type === COBROWSING_SYNC_TYPE) {
+        if (message.action === 'OPEN') {
+            setShowCobrowsingPanel(true);
+            if (showPlaylist) setShowPlaylist(false);
+            if (showMap) setShowMap(false);
+        } else if (message.action === 'CLOSE') {
+            setShowCobrowsingPanel(false);
+        }
+      }
+      // ------------------------------------
+
     } catch (error) {
       console.error('Error handling incoming message:', error);
     }
@@ -163,7 +187,7 @@ function App() {
     }
     syncIntervalRef.current = setInterval(() => {
       if (jitsiApi && participantId) {
-        broadcastPlaylistUpdate('REQUEST_SYNC', null);
+        broadcastMessage(PLAYLIST_SYNC_TYPE, 'REQUEST_SYNC', null);
         const localData = getLocalPlaylist();
         if (localData && localData.participantId !== participantId) {
           const timeDiff = Date.now() - localData.timestamp;
@@ -283,29 +307,31 @@ function App() {
               setSyncStatus('connected');
               setTimeout(() => {
                   startPeriodicSync();
-                  broadcastPlaylistUpdate('FULL_SYNC', playlist);
+                  // --- UPDATED CALL ---
+                  broadcastMessage(PLAYLIST_SYNC_TYPE, 'FULL_SYNC', playlist);
               }, 2000);
           });
 
           api.addEventListener('participantJoined', (event) => {
               setTimeout(() => {
                   if (playlist.length > 0) {
-                      broadcastPlaylistUpdate('FULL_SYNC', playlist);
+                      // --- UPDATED CALL ---
+                      broadcastMessage(PLAYLIST_SYNC_TYPE, 'FULL_SYNC', playlist);
                   }
               }, 1000);
           });
 
           api.addEventListener('endpointTextMessageReceived', (event) => handleIncomingMessage(event));
           api.addEventListener('incomingMessage', (event) => {
-              if (event.message && event.message.includes('[PLAYLIST_SYNC]')) {
+              // --- UPDATED HANDLER CHECK ---
+              if (event.message && (event.message.includes(`[${PLAYLIST_SYNC_TYPE}]`) || event.message.includes(`[${COBROWSING_SYNC_TYPE}]`))) {
                   handleIncomingMessage(event.message);
               }
           });
           api.addEventListener('sharedVideoStarted', (event) => {
               setIsVideoSharing(true);
               setCurrentSharedVideo(event.url);
-              // This command forces the local player to be muted.
-              // It does not affect other participants' players.
+              // Do not auto-close map if video is shared, they are now independent features.
               forceAudioMute();
           });
           api.addEventListener('sharedVideoStopped', (event) => {
@@ -348,6 +374,9 @@ function App() {
     setJitsiInitialized(false);
     setIsVideoSharing(false);
     setCurrentSharedVideo('');
+    // --- NEW CLEANUP ---
+    setShowCobrowsingPanel(false);
+    // -------------------
     setParticipantId('');
     setIsPlaylistSynced(false);
     setAudioMuted(false);
@@ -402,7 +431,25 @@ function App() {
   const toggleMap = () => {
     setShowMap(!showMap);
     if (showPlaylist) setShowPlaylist(false);
+    if (showCobrowsingPanel) setShowCobrowsingPanel(false); // Close cobrowsing panel
   };
+
+  // --- NEW TOGGLE FUNCTION ---
+  const toggleCobrowsing = () => {
+    const newState = !showCobrowsingPanel;
+    setShowCobrowsingPanel(newState);
+
+    if (newState) {
+        // Close other panels when opening cobrowsing
+        if (showPlaylist) setShowPlaylist(false);
+        if (showMap) setShowMap(false);
+        broadcastMessage(COBROWSING_SYNC_TYPE, 'OPEN', null);
+    } else {
+        broadcastMessage(COBROWSING_SYNC_TYPE, 'CLOSE', null);
+    }
+  };
+  // ---------------------------
+
   const shareVideoDirectly = () => {
     if (jitsiApi && videoUrl) {
       try {
@@ -450,7 +497,8 @@ function App() {
           return newPlaylist;
         });
         setVideoUrl('');
-        broadcastPlaylistUpdate('ADD', newVideo);
+        // --- UPDATED CALL ---
+        broadcastMessage(PLAYLIST_SYNC_TYPE, 'ADD', newVideo);
         setIsPlaylistSynced(true);
       } catch (error) {
         console.error('Error adding video to playlist:', error);
@@ -460,7 +508,8 @@ function App() {
           storePlaylistLocally(newPlaylist);
           return newPlaylist;
         });
-        broadcastPlaylistUpdate('ADD', newVideo);
+        // --- UPDATED CALL ---
+        broadcastMessage(PLAYLIST_SYNC_TYPE, 'ADD', newVideo);
         setVideoUrl('');
       } finally {
         setIsLoadingVideoTitle(false);
@@ -476,7 +525,8 @@ function App() {
       storePlaylistLocally(newPlaylist);
       return newPlaylist;
     });
-    broadcastPlaylistUpdate('REMOVE', { id });
+    // --- UPDATED CALL ---
+    broadcastMessage(PLAYLIST_SYNC_TYPE, 'REMOVE', { id });
   };
   const handleShareVideo = (url) => {
     if (jitsiApi) {
@@ -503,6 +553,7 @@ function App() {
   const togglePlaylist = () => {
     setShowPlaylist(!showPlaylist);
     if (showMap) setShowMap(false);
+    if (showCobrowsingPanel) setShowCobrowsingPanel(false); // Close cobrowsing panel
   };
 
   const extractYouTubeVideoId = (url) => {
@@ -528,7 +579,8 @@ function App() {
     newPlaylist.splice(newIndex, 0, draggedItem);
     setPlaylist(newPlaylist);
     storePlaylistLocally(newPlaylist);
-    broadcastPlaylistUpdate('REORDER', newPlaylist);
+    // --- UPDATED CALL ---
+    broadcastMessage(PLAYLIST_SYNC_TYPE, 'REORDER', newPlaylist);
     setDraggedItem(null);
   };
   const handleDragEnd = () => setDraggedItem(null);
@@ -539,8 +591,12 @@ function App() {
       <header className="bg-green-900 px-4 py-2 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
         <div className="flex items-center justify-between w-full md:w-auto mb-2 md:mb-0">
           <div className="flex items-center md:hidden gap-2">
+            {/* Mobile Buttons */}
             <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
+            </Button>
+            <Button onClick={toggleCobrowsing} variant="ghost" size="icon" className="text-lime-500 hover:text-lime-600" title="Start Property Walkthrough">
+              {showCobrowsingPanel ? <X className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </Button>
             <Button onClick={toggleMap} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
@@ -577,9 +633,15 @@ function App() {
             </Button>
           </div>
           <div className="hidden md:flex items-center gap-2">
+            {/* Desktop Buttons */}
             <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
+            {/* --- NEW BUTTON: COBROWSING --- */}
+            <Button onClick={toggleCobrowsing} variant="ghost" size="icon" className="text-lime-500 hover:bg-green-700 hover:text-lime-500" title="Start Property Walkthrough">
+              {showCobrowsingPanel ? <X className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </Button>
+            {/* ------------------------------- */}
             <Button onClick={toggleMap} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
             </Button>
@@ -609,10 +671,13 @@ function App() {
           />
         </div>
 
-        {(showPlaylist || showMap) && (
+        {/* --- UPDATED: Conditional Panel Rendering --- */}
+        {(showPlaylist || showMap || showCobrowsingPanel) && (
           <div className="fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 bg-green-800 border-t md:border-l border-green-700 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out">
+
             {showPlaylist && (
               <div className="flex flex-col h-full">
+                {/* ... existing playlist UI ... */}
                 <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
                   <h2 className="text-lg font-semibold">Video Playlist ({playlist.length})</h2>
                   <div className="relative">
@@ -684,8 +749,35 @@ function App() {
                 </div>
               </div>
             )}
+
+            {/* --- NEW COBROWSING PANEL --- */}
+            {showCobrowsingPanel && (
+              <div className="flex flex-col h-full">
+                <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
+                  <h2 className="text-lg font-semibold text-lime-400">Live Property Walkthrough (BD View)</h2>
+                  <Button onClick={toggleCobrowsing} variant="ghost" size="icon" className="text-rose-400 hover:bg-rose-400/20" title="Stop sharing walkthrough">
+                      <X className="w-5 h-5" />
+                  </Button>
+                </div>
+                <div className="flex-1 min-h-0 relative">
+                  <iframe
+                      src={COBROWSING_URL}
+                      title="Property Cobrowsing Stream"
+                      className="w-full h-full border-none"
+                      // Ensure all necessary permissions are granted for the cobrowsing/navigation app
+                      allow="camera; microphone; geolocation; display-capture; autoplay"
+                      referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute top-0 left-0 right-0 p-1 text-center bg-lime-500/80 text-gray-900 text-xs font-bold pointer-events-none">
+                      LIVE COBROWSING PANEL
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* ---------------------------- */}
           </div>
         )}
+
       </div>
 
       {showErrorModal && (
