@@ -98,7 +98,6 @@ function App() {
     }
 
     // 2. Use the public chat as a fallback for synchronization.
-    // FIX: The previous code excluded COBROWSING_SYNC_TYPE, which broke sync when the data channel failed.
     if (type === PLAYLIST_SYNC_TYPE || type === COBROWSING_SYNC_TYPE) {
         try {
           const chatMessage = `[${type}] ${JSON.stringify(message)}`;
@@ -575,7 +574,7 @@ function App() {
 
   // Determine if any side panel is open for layout changes
   const isSidePanelOpen = showPlaylist || showMap || showCobrowsingPanel;
-  // Determine if the COBROWSING panel is open specifically for the 100% / 80% split
+  // Determine if the COBROWSING panel is open specifically for the 80% split
   const isCobrowsingPanelActive = showCobrowsingPanel;
 
   return (
@@ -641,22 +640,20 @@ function App() {
 
       <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
         {/* --- Jitsi Container ---
-          Logic:
-          1. If Cobrowsing is active: Hide on mobile (w-0 h-0), 20% width on desktop. (20:80 split)
-          2. If other panel is active: 35vh height on mobile, 20% width on desktop.
-          3. No panel: Full width/height.
+          Mobile Logic (when panel is open): Fixed to bottom, 20% height (h-[20vh]).
+          Desktop Logic (when panel is open): Relative, 20% width (md:w-[20%]).
         */}
         <div
           className={`
-            bg-green-900 flex flex-col relative rounded-2xl ${isSidePanelOpen ? 'md:rounded-r-none' : ''} overflow-hidden shadow-2xl flex-shrink-0
+            bg-green-900 flex flex-col relative rounded-2xl overflow-hidden shadow-2xl flex-shrink-0
             ${isCobrowsingPanelActive
-              ? 'w-0 h-0 md:w-[20%] md:h-full' // 👈 NEW: Cobrowsing Active: Hide on mobile, 20% on desktop (0:100 mobile, 20:80 desktop)
+              ? 'fixed bottom-0 left-0 right-0 h-[20vh] w-full md:relative md:w-[20%] md:h-full md:rounded-r-none' // 👈 NEW Mobile Layout: Fixed bottom, 20vh height
               : isSidePanelOpen
-                ? 'w-full h-[35vh] md:w-[20%] md:h-full' // Other Panel Active: 35vh on mobile, 20% on desktop
+                ? 'w-full h-[35vh] md:w-[20%] md:h-full md:rounded-r-none' // Other Panel Active: Old 35vh bottom height on mobile
                 : 'w-full h-full' // No Panel Active: Full width/height
             }
           `}
-          style={{ transition: 'width 0.3s ease-in-out, opacity 0.3s ease-in-out, height 0.3s ease-in-out' }}
+          style={{ transition: 'width 0.3s ease-in-out, height 0.3s ease-in-out' }}
         >
           {isInitializing && (
             <div className="w-full h-full flex items-center justify-center bg-green-950">
@@ -679,17 +676,19 @@ function App() {
         </div>
 
         {/* --- Side Panel Container (Cobrowsing, Map, Playlist) ---
-          Logic:
-          1. If Cobrowsing is active: 100% width/height on mobile, 80% width on desktop.
-          2. If other panel is active: 2/3 height on mobile (existing layout), 80% width on desktop.
+          Mobile Logic (when Cobrowsing is active): Fixed to top, 80% height (h-[80vh]).
+          Desktop Logic: Relative, 80% width (md:w-[80%]).
         */}
         {isSidePanelOpen && (
           <div className={`
-            fixed bottom-0 left-0 right-0
-            ${isCobrowsingPanelActive ? 'h-full w-full' : 'h-2/3 w-full'} // 👈 NEW: 100% height/width on mobile when Cobrowsing is active
             md:h-full md:relative bg-green-800 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
             rounded-t-2xl md:rounded-r-2xl md:rounded-l-none overflow-hidden
             md:w-[80%] md:border-l md:border-t-0 border-green-700
+
+            ${isCobrowsingPanelActive
+              ? 'fixed top-0 left-0 right-0 h-[80vh] w-full' // 👈 NEW Mobile Layout: Fixed top, 80vh height
+              : 'fixed bottom-0 left-0 right-0 h-2/3 w-full' // Other Panels: Original bottom 2/3 height
+            }
           `}>
 
             {showPlaylist && (
