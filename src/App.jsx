@@ -1,14 +1,115 @@
 import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button.jsx';
 import {
-  MapPin, X, Youtube, List, Plus, Play, Trash2, Loader2, Search, ChevronDown, AlertCircle,
+  MapPin, X, Youtube, List, Plus, Play, Trash2, Loader2, Search, ChevronDown, AlertCircle, Monitor, ScreenShare,
 } from 'lucide-react';
-import EnhancedFreeMap from './components/EnhancedFreeMap.jsx';
-import './App.css';
-import LenskartLogo from './logo.png';
+
+// --- INLINE UI COMPONENT REPLACEMENTS ---
+
+// 1. Simplified Button Component (to replace external import)
+const Button = ({ children, onClick, className = '', variant = 'default', size = 'default', disabled = false, title = '' }) => {
+    let baseStyle = 'inline-flex items-center justify-center rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50 disabled:pointer-events-none shadow-md';
+    let variantStyle = '';
+    let sizeStyle = '';
+
+    switch (variant) {
+        case 'ghost':
+            variantStyle = 'bg-transparent hover:bg-green-700/50';
+            break;
+        case 'outline':
+            variantStyle = 'border border-amber-500 text-amber-500 hover:bg-amber-500/10';
+            break;
+        default:
+            variantStyle = 'bg-amber-500 text-gray-900 hover:bg-amber-600';
+    }
+
+    switch (size) {
+        case 'icon':
+            sizeStyle = 'h-10 w-10 p-2';
+            break;
+        case 'sm':
+            sizeStyle = 'h-9 px-3';
+            break;
+        default:
+            sizeStyle = 'h-10 px-4 py-2';
+    }
+
+    return (
+        <button
+            onClick={onClick}
+            className={`${baseStyle} ${variantStyle} ${sizeStyle} ${className}`}
+            disabled={disabled}
+            title={title}
+        >
+            {children}
+        </button>
+    );
+};
+
+// --- INLINE FEATURE COMPONENTS ---
+
+// 2. Replit Co-browsing Component (New Feature)
+const ReplitCoBrowsingView = () => {
+    // The sample URL provided uses a dynamic room ID, so we use a mock one for demonstration.
+    const sampleUrl = 'https://geo-stream.replit.app/playback/c5eca37c-0e06-47ae-a96e-2ae1623e53fc?roomId=bdhOlu_XJu';
+
+    return (
+        <div className="flex flex-col h-full bg-green-950">
+            <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
+                <h2 className="text-lg font-semibold flex items-center">
+                    <ScreenShare className="w-5 h-5 mr-2 text-lime-400" />
+                    Replit Co-browsing Stream
+                </h2>
+                <span className="text-xs text-gray-400">Sample Stream Demo</span>
+            </div>
+            <div className="flex-1 min-h-0 relative">
+                <iframe
+                    src={sampleUrl}
+                    className="w-full h-full border-0"
+                    title="Replit Co-browsing Video Playback"
+                    allowFullScreen
+                    style={{ minHeight: '300px' }}
+                />
+            </div>
+             <div className="p-2 text-center bg-green-900 text-xs text-gray-500 border-t border-green-700">
+                This is a live co-browsing stream loaded from Replit.
+            </div>
+        </div>
+    );
+};
+
+// 3. EnhancedFreeMap Component (Defined Inline)
+const EnhancedFreeMap = () => {
+    // Using an iframe to embed a simple, responsive OpenStreetMap view for compliance.
+    // For a real-world Leaflet integration in React, 'react-leaflet' would be used, but cannot be imported externally here.
+    const mapEmbedUrl = "https://www.openstreetmap.org/export/embed.html?bbox=77.5946%2C12.9716%2C77.5996%2C12.9766&layer=mapnik&marker=12.9741,77.5971";
+
+    return (
+        <div className="flex flex-col h-full bg-gray-100">
+            <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
+                <h2 className="text-lg font-semibold flex items-center">
+                    <MapPin className="w-5 h-5 mr-2 text-lime-400" />
+                    Interactive Map Service
+                </h2>
+            </div>
+            <div className="flex-1 min-h-0 relative">
+                <iframe
+                    src={mapEmbedUrl}
+                    className="w-full h-full border-0"
+                    title="OpenStreetMap Embed"
+                    allowFullScreen
+                    style={{ filter: 'grayscale(20%) brightness(80%)', minHeight: '300px' }}
+                />
+            </div>
+        </div>
+    );
+};
+
+
+// --- MAIN APP COMPONENT ---
 
 function App() {
   const [showMap, setShowMap] = useState(false);
+  const [showReplitView, setShowReplitView] = useState(false); // New state for Replit view
   const [videoUrl, setVideoUrl] = useState('');
   const [isVideoSharing, setIsVideoSharing] = useState(false);
   const [currentSharedVideo, setCurrentSharedVideo] = useState('');
@@ -369,10 +470,13 @@ function App() {
     return () => { observer.disconnect(); };
   }, [jitsiContainerRef]);
 
-  const toggleMap = () => {
-    setShowMap(!showMap);
-    if (showPlaylist) setShowPlaylist(false);
+  // Unified Toggle Function
+  const togglePanel = (panelName) => {
+    setShowPlaylist(panelName === 'playlist' ? !showPlaylist : false);
+    setShowMap(panelName === 'map' ? !showMap : false);
+    setShowReplitView(panelName === 'replit' ? !showReplitView : false);
   };
+
   const shareVideoDirectly = () => {
     if (jitsiApi && videoUrl) {
       try {
@@ -470,11 +574,6 @@ function App() {
     }
   };
 
-  const togglePlaylist = () => {
-    setShowPlaylist(!showPlaylist);
-    if (showMap) setShowMap(false);
-  };
-
   const extractYouTubeVideoId = (url) => {
     const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
     const match = url.match(regex);
@@ -504,16 +603,22 @@ function App() {
   const handleDragEnd = () => setDraggedItem(null);
   const filteredPlaylist = playlist.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
+  // Determine which panel is currently open
+  const isPanelOpen = showPlaylist || showMap || showReplitView;
+
   return (
     <div className="h-screen w-screen flex flex-col bg-green-950 text-white overflow-hidden">
       <header className="bg-green-900 px-4 py-2 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
         <div className="flex items-center justify-between w-full md:w-auto mb-2 md:mb-0">
           <div className="flex items-center md:hidden gap-2">
-            <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title={`Videos (${playlist.length})`}>
+            <Button onClick={() => togglePanel('playlist')} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
-            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title="Show Map">
+            <Button onClick={() => togglePanel('map')} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
+            </Button>
+            <Button onClick={() => togglePanel('replit')} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title="Show Replit Stream">
+              {showReplitView ? <X className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
             </Button>
           </div>
         </div>
@@ -547,11 +652,14 @@ function App() {
             </Button>
           </div>
           <div className="hidden md:flex items-center gap-2">
-            <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title={`Videos (${playlist.length})`}>
+            <Button onClick={() => togglePanel('playlist')} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
-            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title="Show Map">
+            <Button onClick={() => togglePanel('map')} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
+            </Button>
+             <Button onClick={() => togglePanel('replit')} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title="Show Replit Stream">
+              {showReplitView ? <X className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
             </Button>
           </div>
         </div>
@@ -579,8 +687,11 @@ function App() {
           />
         </div>
 
-        {(showPlaylist || showMap) && (
-          <div className="fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 bg-green-800 border-t md:border-l border-green-700 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out">
+        {isPanelOpen && (
+          <div className={`
+            fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 bg-green-800 border-t md:border-l border-green-700 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
+            ${showMap || showReplitView ? 'md:w-1/2' : 'md:w-[400px]'}
+          `}>
             {showPlaylist && (
               <div className="flex flex-col h-full">
                 <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
@@ -644,16 +755,9 @@ function App() {
               </div>
             )}
 
-            {showMap && (
-              <div className="flex flex-col h-full">
-                <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
-                  <h2 className="text-lg font-semibold">Map Services</h2>
-                </div>
-                <div className="flex-1 min-h-0">
-                  <EnhancedFreeMap />
-                </div>
-              </div>
-            )}
+            {showMap && <EnhancedFreeMap />}
+            {showReplitView && <ReplitCoBrowsingView />}
+
           </div>
         )}
       </div>
