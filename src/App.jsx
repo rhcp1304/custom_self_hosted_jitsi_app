@@ -573,6 +573,9 @@ function App() {
   const handleDragEnd = () => setDraggedItem(null);
   const filteredPlaylist = playlist.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
+  // Determine if any side panel is open for layout changes
+  const isSidePanelOpen = showPlaylist || showMap || showCobrowsingPanel;
+
   return (
     <div className="h-screen w-screen flex flex-col bg-green-950 text-white overflow-hidden">
       <header className="bg-green-900 px-4 py-2 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
@@ -635,11 +638,11 @@ function App() {
       </header>
 
       <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
-        {/* --- MODIFIED: Jitsi Container (Shrinks to 0% when Cobrowsing is active) --- */}
+        {/* --- MODIFIED: Jitsi Container (Now uses 70% width when any panel is open) --- */}
         <div
           className={`
             bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl
-            ${showCobrowsingPanel ? 'w-0 md:w-0 md:opacity-0' : showPlaylist || showMap ? 'w-full md:w-1/2' : 'w-full'}
+            ${isSidePanelOpen ? 'w-full md:w-[70%]' : 'w-full'}
           `}
           style={{ transition: 'width 0.3s ease-in-out, opacity 0.3s ease-in-out' }}
         >
@@ -663,11 +666,11 @@ function App() {
           />
         </div>
 
-        {/* --- MODIFIED: Side Panel Container (Expands to 100% when Cobrowsing is active) --- */}
-        {(showPlaylist || showMap || showCobrowsingPanel) && (
+        {/* --- MODIFIED: Side Panel Container (Now uses 30% width when open) --- */}
+        {isSidePanelOpen && (
           <div className={`
             fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative bg-green-800 border-t shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
-            ${showCobrowsingPanel && !(showPlaylist || showMap) ? 'md:w-full' : 'md:w-1/2 md:border-l border-green-700'}
+            md:w-[30%] md:border-l border-green-700
           `}>
 
             {showPlaylist && (
