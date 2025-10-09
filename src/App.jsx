@@ -26,7 +26,7 @@ function App() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // --- NEW COBROWSING STATES & CONSTANTS ---
+  // --- COBROWSING STATES & CONSTANTS ---
   const [showCobrowsingPanel, setShowCobrowsingPanel] = useState(false);
   const COBROWSING_URL = 'https://geo-stream.replit.app/playback/c5eca37c-0e06-47ae-a96e-2ae1623e53fc?roomId=bdhOlu_XJu';
   const COBROWSING_SYNC_TYPE = 'COBROWSING_SYNC';
@@ -81,7 +81,6 @@ function App() {
     return null;
   };
 
-  // --- REFACTORED: Renamed to broadcastMessage and accepts 'type' ---
   const broadcastMessage = (type, action, data) => {
     if (!jitsiApi) return;
     const message = {
@@ -103,13 +102,11 @@ function App() {
       console.log('Chat method also failed:', error);
     }
 
-    // Only store playlist locally if it's a playlist action
     if (type === PLAYLIST_SYNC_TYPE) {
       storePlaylistLocally(action === 'FULL_SYNC' ? data : playlist);
     }
     setSyncStatus('syncing');
   };
-  // -------------------------------------------------------------------
 
   const handleIncomingMessage = (messageData) => {
     try {
@@ -122,7 +119,6 @@ function App() {
       } else if (messageContent.startsWith(`[${COBROWSING_SYNC_TYPE}]`)) {
           message = JSON.parse(messageContent.replace(`[${COBROWSING_SYNC_TYPE}]`, '').trim());
       } else if (typeof messageData.data === 'string' && messageData.data.startsWith('{')) {
-          // Fallback for endpointTextMessageReceived
           message = JSON.parse(messageData.data);
       } else {
         return;
@@ -163,7 +159,6 @@ function App() {
         setSyncStatus('connected');
       }
 
-      // --- NEW COBROWSING SYNC HANDLING ---
       if (message.type === COBROWSING_SYNC_TYPE) {
         if (message.action === 'OPEN') {
             setShowCobrowsingPanel(true);
@@ -173,7 +168,6 @@ function App() {
             setShowCobrowsingPanel(false);
         }
       }
-      // ------------------------------------
 
     } catch (error) {
       console.error('Error handling incoming message:', error);
@@ -307,7 +301,6 @@ function App() {
               setSyncStatus('connected');
               setTimeout(() => {
                   startPeriodicSync();
-                  // --- UPDATED CALL ---
                   broadcastMessage(PLAYLIST_SYNC_TYPE, 'FULL_SYNC', playlist);
               }, 2000);
           });
@@ -315,7 +308,6 @@ function App() {
           api.addEventListener('participantJoined', (event) => {
               setTimeout(() => {
                   if (playlist.length > 0) {
-                      // --- UPDATED CALL ---
                       broadcastMessage(PLAYLIST_SYNC_TYPE, 'FULL_SYNC', playlist);
                   }
               }, 1000);
@@ -323,7 +315,6 @@ function App() {
 
           api.addEventListener('endpointTextMessageReceived', (event) => handleIncomingMessage(event));
           api.addEventListener('incomingMessage', (event) => {
-              // --- UPDATED HANDLER CHECK ---
               if (event.message && (event.message.includes(`[${PLAYLIST_SYNC_TYPE}]`) || event.message.includes(`[${COBROWSING_SYNC_TYPE}]`))) {
                   handleIncomingMessage(event.message);
               }
@@ -331,7 +322,6 @@ function App() {
           api.addEventListener('sharedVideoStarted', (event) => {
               setIsVideoSharing(true);
               setCurrentSharedVideo(event.url);
-              // Do not auto-close map if video is shared, they are now independent features.
               forceAudioMute();
           });
           api.addEventListener('sharedVideoStopped', (event) => {
@@ -374,9 +364,7 @@ function App() {
     setJitsiInitialized(false);
     setIsVideoSharing(false);
     setCurrentSharedVideo('');
-    // --- NEW CLEANUP ---
     setShowCobrowsingPanel(false);
-    // -------------------
     setParticipantId('');
     setIsPlaylistSynced(false);
     setAudioMuted(false);
@@ -431,16 +419,14 @@ function App() {
   const toggleMap = () => {
     setShowMap(!showMap);
     if (showPlaylist) setShowPlaylist(false);
-    if (showCobrowsingPanel) setShowCobrowsingPanel(false); // Close cobrowsing panel
+    if (showCobrowsingPanel) setShowCobrowsingPanel(false);
   };
 
-  // --- NEW TOGGLE FUNCTION ---
   const toggleCobrowsing = () => {
     const newState = !showCobrowsingPanel;
     setShowCobrowsingPanel(newState);
 
     if (newState) {
-        // Close other panels when opening cobrowsing
         if (showPlaylist) setShowPlaylist(false);
         if (showMap) setShowMap(false);
         broadcastMessage(COBROWSING_SYNC_TYPE, 'OPEN', null);
@@ -448,7 +434,6 @@ function App() {
         broadcastMessage(COBROWSING_SYNC_TYPE, 'CLOSE', null);
     }
   };
-  // ---------------------------
 
   const shareVideoDirectly = () => {
     if (jitsiApi && videoUrl) {
@@ -497,7 +482,6 @@ function App() {
           return newPlaylist;
         });
         setVideoUrl('');
-        // --- UPDATED CALL ---
         broadcastMessage(PLAYLIST_SYNC_TYPE, 'ADD', newVideo);
         setIsPlaylistSynced(true);
       } catch (error) {
@@ -508,7 +492,6 @@ function App() {
           storePlaylistLocally(newPlaylist);
           return newPlaylist;
         });
-        // --- UPDATED CALL ---
         broadcastMessage(PLAYLIST_SYNC_TYPE, 'ADD', newVideo);
         setVideoUrl('');
       } finally {
@@ -525,7 +508,6 @@ function App() {
       storePlaylistLocally(newPlaylist);
       return newPlaylist;
     });
-    // --- UPDATED CALL ---
     broadcastMessage(PLAYLIST_SYNC_TYPE, 'REMOVE', { id });
   };
   const handleShareVideo = (url) => {
@@ -553,7 +535,7 @@ function App() {
   const togglePlaylist = () => {
     setShowPlaylist(!showPlaylist);
     if (showMap) setShowMap(false);
-    if (showCobrowsingPanel) setShowCobrowsingPanel(false); // Close cobrowsing panel
+    if (showCobrowsingPanel) setShowCobrowsingPanel(false);
   };
 
   const extractYouTubeVideoId = (url) => {
@@ -579,7 +561,6 @@ function App() {
     newPlaylist.splice(newIndex, 0, draggedItem);
     setPlaylist(newPlaylist);
     storePlaylistLocally(newPlaylist);
-    // --- UPDATED CALL ---
     broadcastMessage(PLAYLIST_SYNC_TYPE, 'REORDER', newPlaylist);
     setDraggedItem(null);
   };
@@ -637,11 +618,9 @@ function App() {
             <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
-            {/* --- NEW BUTTON: COBROWSING --- */}
             <Button onClick={toggleCobrowsing} variant="ghost" size="icon" className="text-lime-500 hover:bg-green-700 hover:text-lime-500" title="Start Property Walkthrough">
               {showCobrowsingPanel ? <X className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </Button>
-            {/* ------------------------------- */}
             <Button onClick={toggleMap} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
             </Button>
@@ -650,7 +629,14 @@ function App() {
       </header>
 
       <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
-        <div className="w-full h-full bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl">
+        {/* --- MODIFIED JITSI CONTAINER WRAPPER --- */}
+        <div
+          className={`
+            bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl
+            ${showCobrowsingPanel || showPlaylist || showMap ? 'w-full md:w-1/2' : 'w-full'}
+          `}
+          style={{ transition: 'width 0.3s ease-in-out' }} // Added transition for smoother visual effect
+        >
           {isInitializing && (
             <div className="w-full h-full flex items-center justify-center bg-green-950">
               <div className="text-center">
@@ -671,13 +657,12 @@ function App() {
           />
         </div>
 
-        {/* --- UPDATED: Conditional Panel Rendering --- */}
+        {/* --- MODIFIED SIDE PANEL CONTAINER --- */}
         {(showPlaylist || showMap || showCobrowsingPanel) && (
           <div className="fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 bg-green-800 border-t md:border-l border-green-700 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out">
 
             {showPlaylist && (
               <div className="flex flex-col h-full">
-                {/* ... existing playlist UI ... */}
                 <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
                   <h2 className="text-lg font-semibold">Video Playlist ({playlist.length})</h2>
                   <div className="relative">
@@ -750,7 +735,6 @@ function App() {
               </div>
             )}
 
-            {/* --- NEW COBROWSING PANEL --- */}
             {showCobrowsingPanel && (
               <div className="flex flex-col h-full">
                 <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
@@ -764,7 +748,6 @@ function App() {
                       src={COBROWSING_URL}
                       title="Property Cobrowsing Stream"
                       className="w-full h-full border-none"
-                      // Ensure all necessary permissions are granted for the cobrowsing/navigation app
                       allow="camera; microphone; geolocation; display-capture; autoplay"
                       referrerPolicy="no-referrer"
                   />
@@ -774,10 +757,8 @@ function App() {
                 </div>
               </div>
             )}
-            {/* ---------------------------- */}
           </div>
         )}
-
       </div>
 
       {showErrorModal && (
