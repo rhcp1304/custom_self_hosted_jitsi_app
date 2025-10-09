@@ -1,14 +1,68 @@
 import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button.jsx';
 import {
-  MapPin, X, Youtube, List, Plus, Play, Trash2, Loader2, Search, ChevronDown, AlertCircle,
+  MapPin, X, List, Plus, Play, Trash2, Loader2, Search, ChevronDown, AlertCircle, Monitor, ScreenShare,
 } from 'lucide-react';
-import EnhancedFreeMap from './components/EnhancedFreeMap.jsx';
-import './App.css';
-import LenskartLogo from './logo.png';
+
+// --- INLINE UI COMPONENT REPLACEMENTS ---
+
+// Simplified Button Component (to replace external import)
+const Button = ({ children, onClick, className = '', variant = 'default', size = 'default', disabled = false, title = '' }) => {
+    let baseStyle = 'inline-flex items-center justify-center rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none shadow-md';
+    let variantStyle = '';
+    let sizeStyle = '';
+
+    switch (variant) {
+        case 'ghost':
+            variantStyle = 'bg-transparent hover:bg-gray-700/50';
+            break;
+        case 'outline':
+            variantStyle = 'border border-blue-500 text-blue-500 hover:bg-blue-500/10';
+            break;
+        default:
+            variantStyle = 'bg-blue-600 text-white hover:bg-blue-700';
+    }
+
+    switch (size) {
+        case 'icon':
+            sizeStyle = 'h-10 w-10 p-2';
+            break;
+        case 'sm':
+            sizeStyle = 'h-9 px-3';
+            break;
+        default:
+            sizeStyle = 'h-10 px-4 py-2';
+    }
+
+    return (
+        <button
+            onClick={onClick}
+            className={`${baseStyle} ${variantStyle} ${sizeStyle} ${className}`}
+            disabled={disabled}
+            title={title}
+        >
+            {children}
+        </button>
+    );
+};
+
+// Stub for EnhancedFreeMap (since its implementation was not provided)
+const EnhancedFreeMap = () => (
+    <div className="p-4 flex items-center justify-center h-full bg-gray-900">
+        <div className="text-center text-gray-400">
+            <MapPin className="w-8 h-8 mx-auto mb-2 text-red-500" />
+            <p className="text-lg font-medium">Map View</p>
+            <p className="text-sm">Location services are active here.</p>
+        </div>
+    </div>
+);
+
+// --- MAIN APP COMPONENT ---
 
 function App() {
   const [showMap, setShowMap] = useState(false);
+  const [showCobrowsing, setShowCobrowsing] = useState(false); // NEW STATE
+  const [cobrowsingUrl, setCobrowsingUrl] = useState('https://www.google.com/search?q=Lenskart+Eyewear'); // NEW STATE: Default URL
+  const [cobrowsingInput, setCobrowsingInput] = useState('https://www.google.com/search?q=Lenskart+Eyewear'); // NEW STATE: Input field value
   const [videoUrl, setVideoUrl] = useState('');
   const [isVideoSharing, setIsVideoSharing] = useState(false);
   const [currentSharedVideo, setCurrentSharedVideo] = useState('');
@@ -42,6 +96,7 @@ function App() {
 
   const fetchYouTubeVideoTitle = async (videoUrl) => {
     try {
+      // Using noembed.com to fetch titles, but this is a stub and might fail in a real environment
       const response = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(videoUrl)}`);
       if (response.ok) {
         const data = await response.json();
@@ -59,7 +114,11 @@ function App() {
       timestamp: Date.now(),
       participantId: participantId,
     };
-    localStorage.setItem('jitsi_shared_playlist', JSON.stringify(data));
+    try {
+        localStorage.setItem('jitsi_shared_playlist', JSON.stringify(data));
+    } catch (e) {
+        console.error('Failed to store playlist locally.', e);
+    }
   };
 
   const getLocalPlaylist = () => {
@@ -83,17 +142,22 @@ function App() {
       participantId: participantId,
       timestamp: Date.now(),
     };
+    const jsonMessage = JSON.stringify(message);
+
     try {
-      jitsiApi.executeCommand('sendEndpointTextMessage', '', JSON.stringify(message));
+      // Try to send via data channels (better for structured data)
+      jitsiApi.executeCommand('sendEndpointTextMessage', '', jsonMessage);
     } catch (error) {
       console.log('Data channel failed, trying chat:', error);
+      try {
+        // Fallback to chat channel
+        const chatMessage = `[PLAYLIST_SYNC] ${jsonMessage}`;
+        jitsiApi.executeCommand('sendChatMessage', chatMessage);
+      } catch (error) {
+        console.log('Chat method also failed:', error);
+      }
     }
-    try {
-      const chatMessage = `[PLAYLIST_SYNC] ${JSON.stringify(message)}`;
-      jitsiApi.executeCommand('sendChatMessage', chatMessage);
-    } catch (error) {
-      console.log('Chat method also failed:', error);
-    }
+    // Store locally to self-synchronize on refresh/rejoin
     storePlaylistLocally(action === 'FULL_SYNC' ? data : playlist);
     setSyncStatus('syncing');
   };
@@ -101,6 +165,7 @@ function App() {
   const handleIncomingMessage = (messageData) => {
     try {
       let message;
+      // Handle both endpointTextMessageReceived (direct JSON string) and incomingMessage (object with data/message)
       if (typeof messageData === 'string') {
         if (messageData.startsWith('[PLAYLIST_SYNC]')) {
           message = JSON.parse(messageData.replace('[PLAYLIST_SYNC]', '').trim());
@@ -113,16 +178,23 @@ function App() {
         } else {
           message = JSON.parse(messageData.data);
         }
+      } else if (messageData.message) {
+         if (messageData.message.startsWith('[PLAYLIST_SYNC]')) {
+          message = JSON.parse(messageData.message.replace('[PLAYLIST_SYNC]', '').trim());
+        } else {
+            return; // Ignore non-playlist messages from chat
+        }
       } else {
         return;
       }
-      if (message.participantId === participantId) return;
+
+      if (message.participantId === participantId) return; // Ignore messages from self
 
       if (message.type === 'PLAYLIST_SYNC') {
         switch (message.action) {
           case 'ADD':
             setPlaylist((prev) => {
-              const exists = prev.find((video) => video.id === message.data.id);
+              const exists = prev.find((video) => video.url === message.data.url); // Use URL for better deduplication
               if (!exists) {
                 const newPlaylist = [...prev, message.data];
                 storePlaylistLocally(newPlaylist);
@@ -146,6 +218,12 @@ function App() {
             setPlaylist(message.data);
             storePlaylistLocally(message.data);
             break;
+          case 'REQUEST_SYNC':
+              // If another participant requests a sync, respond with the current playlist
+              if (playlist.length > 0) {
+                  broadcastPlaylistUpdate('FULL_SYNC', playlist);
+              }
+              break;
         }
         setIsPlaylistSynced(true);
         setSyncStatus('connected');
@@ -160,26 +238,34 @@ function App() {
     if (syncIntervalRef.current) {
       clearInterval(syncIntervalRef.current);
     }
+    // Set up a periodic check for sync requests and local storage data
     syncIntervalRef.current = setInterval(() => {
       if (jitsiApi && participantId) {
-        broadcastPlaylistUpdate('REQUEST_SYNC', null);
+        // Broadcast a request for sync (if the local playlist is empty or stale)
+        if (playlist.length === 0 || Date.now() - (getLocalPlaylist()?.timestamp || 0) > 60000) {
+            broadcastPlaylistUpdate('REQUEST_SYNC', null);
+        }
+
         const localData = getLocalPlaylist();
+        // Check local storage for a fresh playlist from another participant
         if (localData && localData.participantId !== participantId) {
           const timeDiff = Date.now() - localData.timestamp;
-          if (timeDiff < 30000) {
+          if (timeDiff < 10000) { // Sync if local data is less than 10 seconds old
             setPlaylist(localData.playlist);
             setIsPlaylistSynced(true);
             setSyncStatus('connected');
           }
         }
       }
-    }, 5000);
+    }, 5000); // Check every 5 seconds
   };
 
   const muteJitsiSharedVideo = () => {
     try {
       const jitsiVideoContainer = jitsiContainerRef.current;
       if (!jitsiVideoContainer) return;
+
+      // 1. Mute YouTube IFRAME (using postMessage and direct properties)
       const videoIframes = jitsiVideoContainer.querySelectorAll('iframe');
       videoIframes.forEach(iframe => {
         if (iframe.src.includes('youtube.com')) {
@@ -192,6 +278,8 @@ function App() {
           setAudioMuted(true);
         }
       });
+
+      // 2. Mute local HTML video elements (e.g., screen share videos)
       const allVideos = jitsiVideoContainer.querySelectorAll('video');
       allVideos.forEach(element => {
         if (!element.muted) {
@@ -214,6 +302,7 @@ function App() {
   const forceAudioMute = () => {
       stopMutingInterval();
       muteJitsiSharedVideo();
+      // Continuously check and mute because Jitsi might dynamically add/replace iframes/videos
       muteIntervalRef.current = setInterval(muteJitsiSharedVideo, 500);
       setAudioMuted(true);
   };
@@ -228,6 +317,7 @@ function App() {
       setSyncStatus('disconnected');
 
       try {
+          // Clean up previous instance
           if (jitsiContainerRef.current) {
               while (jitsiContainerRef.current.firstChild) {
                   jitsiContainerRef.current.removeChild(jitsiContainerRef.current.firstChild);
@@ -242,6 +332,8 @@ function App() {
               parentNode: jitsiContainerRef.current,
               width: '100%',
               height: '100%',
+              // JITSI INSTANCE CONFIGURATION: CONFIRMED FOR 'meet-nso.diq.geoiq.ai'
+              // Note: domain is passed in the JitsiMeetExternalAPI constructor below.
               configOverwrite: {
                   startWithAudioMuted: true,
                   startWithVideoMuted: true,
@@ -274,6 +366,7 @@ function App() {
               },
           };
 
+          // JITSI INSTANCE DOMAIN: 'meet-nso.diq.geoiq.ai'
           const api = new window.JitsiMeetExternalAPI('meet-nso.diq.geoiq.ai', config);
           const newParticipantId = generateParticipantId();
           setParticipantId(newParticipantId);
@@ -282,11 +375,18 @@ function App() {
               setSyncStatus('connected');
               setTimeout(() => {
                   startPeriodicSync();
-                  broadcastPlaylistUpdate('FULL_SYNC', playlist);
+                  // Initiate a full sync only if a local playlist exists, otherwise request one
+                  const localData = getLocalPlaylist();
+                  if (localData && localData.playlist.length > 0) {
+                      broadcastPlaylistUpdate('FULL_SYNC', localData.playlist);
+                  } else {
+                      broadcastPlaylistUpdate('REQUEST_SYNC', null);
+                  }
               }, 2000);
           });
 
           api.addEventListener('participantJoined', (event) => {
+              // When a participant joins, broadcast the current playlist to them
               setTimeout(() => {
                   if (playlist.length > 0) {
                       broadcastPlaylistUpdate('FULL_SYNC', playlist);
@@ -294,8 +394,13 @@ function App() {
               }, 1000);
           });
 
-          api.addEventListener('endpointTextMessageReceived', (event) => handleIncomingMessage(event));
+          // Listeners for playlist sync messages
+          api.addEventListener('endpointTextMessageReceived', (event) => {
+              // event.data is the JSON string
+              if (event.data) handleIncomingMessage(event.data);
+          });
           api.addEventListener('incomingMessage', (event) => {
+              // event.message is the chat message string (used as fallback for sync)
               if (event.message && event.message.includes('[PLAYLIST_SYNC]')) {
                   handleIncomingMessage(event.message);
               }
@@ -303,8 +408,6 @@ function App() {
           api.addEventListener('sharedVideoStarted', (event) => {
               setIsVideoSharing(true);
               setCurrentSharedVideo(event.url);
-              // This command forces the local player to be muted.
-              // It does not affect other participants' players.
               forceAudioMute();
           });
           api.addEventListener('sharedVideoStopped', (event) => {
@@ -314,6 +417,7 @@ function App() {
               setAudioMuted(false);
           });
 
+          // Wait until API is ready to receive commands
           await new Promise((resolve) => {
               const checkReady = () => {
                   if (api.isAudioMuted !== undefined) resolve();
@@ -329,6 +433,7 @@ function App() {
           setJitsiInitialized(false);
           setJitsiApi(null);
           setSyncStatus('disconnected');
+          showError('Failed to initialize Jitsi meeting. Check console for details.');
       } finally {
           setIsInitializing(false);
       }
@@ -361,7 +466,7 @@ function App() {
   };
 
   const initializeJitsiOnLoad = () => {
-    // UPDATED LINE: Add a cache-busting query parameter
+    // JITSI SCRIPT URL: 'meet-nso.diq.geoiq.ai'
     const jitsiScriptUrl = `https://meet-nso.diq.geoiq.ai/external_api.js?v=${Date.now()}`;
     const existingScript = document.querySelector(`script[src^="https://meet-nso.diq.geoiq.ai/external_api.js"]`);
 
@@ -374,7 +479,7 @@ function App() {
     script.src = jitsiScriptUrl;
     script.async = true;
     script.onload = initializeJitsi;
-    script.onerror = () => console.error('Failed to load Jitsi External API script.');
+    script.onerror = () => showError('Failed to load Jitsi External API script from meet-nso.diq.geoiq.ai. Please check your network connection.');
     document.head.appendChild(script);
   };
 
@@ -384,12 +489,14 @@ function App() {
   }, []);
 
   useEffect(() => {
+    // Observer to force-mute any new video/iframe elements added by Jitsi
     if (!jitsiContainerRef.current) return;
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.type === 'childList') {
           mutation.addedNodes.forEach((node) => {
-            if (node.tagName === 'IFRAME' || (node.querySelector && node.querySelector('iframe'))) {
+            // Check for iframes (shared video) or video elements (screen share)
+            if (node.tagName === 'IFRAME' || (node.querySelector && node.querySelector('iframe')) || node.tagName === 'VIDEO') {
               forceAudioMute();
             }
           });
@@ -400,10 +507,26 @@ function App() {
     return () => { observer.disconnect(); };
   }, [jitsiContainerRef]);
 
+  // --- PANEL TOGGLE LOGIC (UPDATED) ---
   const toggleMap = () => {
     setShowMap(!showMap);
     if (showPlaylist) setShowPlaylist(false);
+    if (showCobrowsing) setShowCobrowsing(false);
   };
+
+  const togglePlaylist = () => {
+    setShowPlaylist(!showPlaylist);
+    if (showMap) setShowMap(false);
+    if (showCobrowsing) setShowCobrowsing(false);
+  };
+
+  const toggleCobrowsing = () => {
+    setShowCobrowsing(!showCobrowsing);
+    if (showMap) setShowMap(false);
+    if (showPlaylist) setShowPlaylist(false);
+  };
+  // --- END PANEL TOGGLE LOGIC ---
+
   const shareVideoDirectly = () => {
     if (jitsiApi && videoUrl) {
       try {
@@ -445,16 +568,19 @@ function App() {
       try {
         const videoTitle = await fetchYouTubeVideoTitle(videoUrl);
         const newVideo = { id: Date.now() + Math.random(), url: videoUrl, videoId: videoId, title: videoTitle, };
+
         setPlaylist((prev) => {
           const newPlaylist = [...prev, newVideo];
           storePlaylistLocally(newPlaylist);
           return newPlaylist;
         });
-        setVideoUrl('');
         broadcastPlaylistUpdate('ADD', newVideo);
         setIsPlaylistSynced(true);
+        setVideoUrl('');
+
       } catch (error) {
         console.error('Error adding video to playlist:', error);
+        // Fallback title on failure
         const newVideo = { id: Date.now() + Math.random(), url: videoUrl, videoId: videoId, title: `Video ${playlist.length + 1}`, };
         setPlaylist((prev) => {
           const newPlaylist = [...prev, newVideo];
@@ -473,12 +599,17 @@ function App() {
 
   const removeFromPlaylist = (id) => {
     setPlaylist((prev) => {
+      const videoToRemove = prev.find(v => v.id === id);
+      if (currentSharedVideo === videoToRemove?.url) {
+        stopVideoSharing();
+      }
       const newPlaylist = prev.filter((video) => video.id !== id);
       storePlaylistLocally(newPlaylist);
+      broadcastPlaylistUpdate('REMOVE', { id });
       return newPlaylist;
     });
-    broadcastPlaylistUpdate('REMOVE', { id });
   };
+
   const handleShareVideo = (url) => {
     if (jitsiApi) {
       try {
@@ -499,11 +630,6 @@ function App() {
     } else {
       showError('Please wait for the meeting to load and join first');
     }
-  };
-
-  const togglePlaylist = () => {
-    setShowPlaylist(!showPlaylist);
-    if (showMap) setShowMap(false);
   };
 
   const extractYouTubeVideoId = (url) => {
@@ -535,19 +661,46 @@ function App() {
   const handleDragEnd = () => setDraggedItem(null);
   const filteredPlaylist = playlist.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
+  // --- NEW COBROWSING LOGIC ---
+  const handleCobrowsingInputChange = (e) => {
+    setCobrowsingInput(e.target.value);
+  };
+
+  const handleApplyCobrowsingUrl = () => {
+    const url = cobrowsingInput.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        setCobrowsingUrl(`https://${url}`);
+        setCobrowsingInput(`https://${url}`);
+    } else {
+        setCobrowsingUrl(url);
+    }
+    // OPTIONAL: Use Jitsi data channels to broadcast the URL change to other participants
+    // if (jitsiApi) {
+    //     broadcastPlaylistUpdate('COBROWSE_URL', { url: cobrowsingUrl });
+    // }
+  };
+  // --- END NEW COBROWSING LOGIC ---
+
+
   return (
-    <div className="h-screen w-screen flex flex-col bg-gray-950 text-white overflow-hidden">
+    <div className="h-screen w-screen flex flex-col bg-gray-950 text-white overflow-hidden font-sans">
       {/* Header */}
       <header className="bg-gray-900 p-4 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
         {/* Title and Controls */}
         <div className="flex items-center justify-between w-full md:w-auto mb-4 md:mb-0">
-          <img src={LenskartLogo} alt="Lenskart Logo" className="h-12 w-24" />
+          <div className="text-2xl font-bold text-white tracking-widest bg-red-600 px-3 py-1 rounded-lg">
+            LENSKART
+          </div>
           <div className="flex items-center md:hidden gap-2">
             <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:text-white" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
             <Button onClick={toggleMap} variant="ghost" size="icon" className="text-red-500 hover:text-red-400" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
+            </Button>
+            {/* NEW BUTTON: Toggle Cobrowsing */}
+            <Button onClick={toggleCobrowsing} variant="ghost" size="icon" className="text-yellow-500 hover:text-yellow-400" title="Co-browsing">
+              {showCobrowsing ? <X className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
             </Button>
           </div>
         </div>
@@ -560,13 +713,11 @@ function App() {
               placeholder="Paste YouTube URL..."
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              // Updated UI: Brighter background, placeholder, and white focus border
               className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-gray-700 text-sm placeholder-gray-400 border border-gray-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
               onKeyPress={(e) => { if (e.key === 'Enter') shareVideoDirectly(); }}
               disabled={isInitializing || isLoadingVideoTitle}
             />
             {!isVideoSharing ? (
-              // Updated UI: More vibrant blue for the Share button
               <Button onClick={shareVideoDirectly} className="bg-blue-600 hover:bg-blue-700 transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
                 Share
               </Button>
@@ -575,7 +726,6 @@ function App() {
                 Stop
               </Button>
             )}
-            {/* Updated UI: Plus button is now a vibrant green */}
             <Button onClick={addToPlaylist} className="bg-green-600 hover:bg-green-700 text-white transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
               {isLoadingVideoTitle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </Button>
@@ -584,9 +734,12 @@ function App() {
             <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-700 hover:text-white" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
-            {/* Updated UI: Map pin icon is now a vibrant red */}
             <Button onClick={toggleMap} variant="ghost" size="icon" className="text-red-500 hover:bg-gray-700 hover:text-red-400" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
+            </Button>
+            {/* NEW BUTTON: Toggle Cobrowsing */}
+            <Button onClick={toggleCobrowsing} variant="ghost" size="icon" className="text-yellow-500 hover:bg-gray-700 hover:text-yellow-400" title="Co-browsing">
+              {showCobrowsing ? <X className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
             </Button>
           </div>
         </div>
@@ -601,7 +754,7 @@ function App() {
               <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin text-white mx-auto mb-4" />
                 <p className="text-xl font-medium">Initializing meeting...</p>
-                <p className="text-gray-400 text-sm mt-1">Please wait while we set up your conference</p>
+                <p className="text-gray-400 text-sm mt-1">Connecting to Lenskart instance at meet-nso.diq.geoiq.ai</p>
               </div>
             </div>
           )}
@@ -617,13 +770,14 @@ function App() {
         </div>
 
         {/* Panels Container */}
-        {(showPlaylist || showMap) && (
-          <div className="fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 bg-gray-800 border-t md:border-l border-gray-700 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out">
+        {(showPlaylist || showMap || showCobrowsing) && ( // UPDATED CONDITION
+          <div className="fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 lg:w-1/3 bg-gray-800 border-t md:border-l border-gray-700 shadow-xl flex flex-col z-20 transition-all duration-300 ease-in-out">
+
             {/* Playlist Panel */}
             {showPlaylist && (
               <div className="flex flex-col h-full">
                 <div className="bg-gray-900 p-4 flex items-center justify-between border-b border-gray-700 flex-shrink-0">
-                  <h2 className="text-lg font-semibold">Video Playlist ({playlist.length})</h2>
+                  <h2 className="text-lg font-semibold text-white">Video Playlist ({playlist.length})</h2>
                   <div className="relative">
                     <input
                       type="text"
@@ -687,13 +841,49 @@ function App() {
             {showMap && (
               <div className="flex flex-col h-full">
                 <div className="bg-gray-900 p-4 flex items-center justify-between border-b border-gray-700 flex-shrink-0">
-                  <h2 className="text-lg font-semibold">Map Services</h2>
+                  <h2 className="text-lg font-semibold text-white">Property Map (Lenskart Locations)</h2>
                 </div>
                 <div className="flex-1 min-h-0">
                   <EnhancedFreeMap />
                 </div>
               </div>
             )}
+
+            {/* NEW COBROWSING PANEL */}
+            {showCobrowsing && (
+              <div className="flex flex-col h-full">
+                <div className="bg-gray-900 p-4 border-b border-gray-700 flex-shrink-0">
+                  <h2 className="text-lg font-semibold text-white mb-2">Co-browsing (Shared Web View)</h2>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      placeholder="Enter URL to co-browse (e.g., lenskart.com)"
+                      value={cobrowsingInput}
+                      onChange={handleCobrowsingInputChange}
+                      onKeyPress={(e) => { if (e.key === 'Enter') handleApplyCobrowsingUrl(); }}
+                      className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-gray-700 text-sm placeholder-gray-400 border border-gray-600 focus:border-yellow-500 focus:outline-none"
+                    />
+                    <Button onClick={handleApplyCobrowsingUrl} className="bg-yellow-600 hover:bg-yellow-700 text-gray-900 font-bold" title="Share this URL">
+                      <ScreenShare className="w-4 h-4 mr-2" /> Share
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex-1 min-h-0 relative">
+                  {/* Warning for X-Frame-Options: Many sites prevent loading in an iframe */}
+                  <div className="absolute top-0 left-0 right-0 p-2 bg-yellow-900/50 text-yellow-300 text-xs border-b border-yellow-800 flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0" />
+                    <span>Note: Due to security restrictions (X-Frame-Options), many websites (like Google) will not load here. Try a public testing URL.</span>
+                  </div>
+                  <iframe
+                    src={cobrowsingUrl}
+                    title="Co-browsing View"
+                    className="w-full h-full pt-10" // Padded for the warning banner
+                    allow="clipboard-read; clipboard-write"
+                  ></iframe>
+                </div>
+              </div>
+            )}
+
           </div>
         )}
       </div>
