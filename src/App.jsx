@@ -1,69 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button.jsx';
 import {
-  MapPin, X, List, Plus, Play, Trash2, Loader2, Search, ChevronDown, AlertCircle, Monitor, ScreenShare,
+  MapPin, X, Youtube, List, Plus, Play, Trash2, Loader2, Search, ChevronDown, AlertCircle,
 } from 'lucide-react';
-
-// --- INLINE UI COMPONENT REPLACEMENTS (Ensuring self-contained file) ---
-
-// Simplified Button Component
-const Button = ({ children, onClick, className = '', variant = 'default', size = 'default', disabled = false, title = '' }) => {
-    // Reverting to stable, visible blue/gray colors
-    let baseStyle = 'inline-flex items-center justify-center rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none shadow-md';
-    let variantStyle = '';
-    let sizeStyle = '';
-
-    switch (variant) {
-        case 'ghost':
-            variantStyle = 'bg-transparent hover:bg-gray-700/50';
-            break;
-        case 'outline':
-            variantStyle = 'border border-blue-500 text-blue-500 hover:bg-blue-500/10';
-            break;
-        default:
-            variantStyle = 'bg-blue-600 text-white hover:bg-blue-700'; // Default button is blue
-    }
-
-    switch (size) {
-        case 'icon':
-            sizeStyle = 'h-10 w-10 p-2';
-            break;
-        case 'sm':
-            sizeStyle = 'h-9 px-3';
-            break;
-        default:
-            sizeStyle = 'h-10 px-4 py-2';
-    }
-
-    return (
-        <button
-            onClick={onClick}
-            className={`${baseStyle} ${variantStyle} ${sizeStyle} ${className}`}
-            disabled={disabled}
-            title={title}
-        >
-            {children}
-        </button>
-    );
-};
-
-// Stub for EnhancedFreeMap
-const EnhancedFreeMap = () => (
-    <div className="p-4 flex items-center justify-center h-full bg-gray-900">
-        <div className="text-center text-gray-400">
-            <MapPin className="w-8 h-8 mx-auto mb-2 text-red-500" />
-            <p className="text-lg font-medium">Map View</p>
-            <p className="text-sm">Location services are active here.</p>
-        </div>
-    </div>
-);
-
-// --- MAIN APP COMPONENT ---
+import EnhancedFreeMap from './components/EnhancedFreeMap.jsx';
+import './App.css';
+import LenskartLogo from './logo.png';
 
 function App() {
   const [showMap, setShowMap] = useState(false);
-  const [showCobrowsing, setShowCobrowsing] = useState(false);
-  const [cobrowsingUrl, setCobrowsingUrl] = useState('https://www.google.com/search?q=Lenskart+Eyewear');
-  const [cobrowsingInput, setCobrowsingInput] = useState('https://www.google.com/search?q=Lenskart+Eyewear');
   const [videoUrl, setVideoUrl] = useState('');
   const [isVideoSharing, setIsVideoSharing] = useState(false);
   const [currentSharedVideo, setCurrentSharedVideo] = useState('');
@@ -114,11 +59,7 @@ function App() {
       timestamp: Date.now(),
       participantId: participantId,
     };
-    try {
-        localStorage.setItem('jitsi_shared_playlist', JSON.stringify(data));
-    } catch (e) {
-        console.error('Failed to store playlist locally.', e);
-    }
+    localStorage.setItem('jitsi_shared_playlist', JSON.stringify(data));
   };
 
   const getLocalPlaylist = () => {
@@ -142,18 +83,16 @@ function App() {
       participantId: participantId,
       timestamp: Date.now(),
     };
-    const jsonMessage = JSON.stringify(message);
-
     try {
-      jitsiApi.executeCommand('sendEndpointTextMessage', '', jsonMessage);
+      jitsiApi.executeCommand('sendEndpointTextMessage', '', JSON.stringify(message));
     } catch (error) {
       console.log('Data channel failed, trying chat:', error);
-      try {
-        const chatMessage = `[PLAYLIST_SYNC] ${jsonMessage}`;
-        jitsiApi.executeCommand('sendChatMessage', chatMessage);
-      } catch (error) {
-        console.log('Chat method also failed:', error);
-      }
+    }
+    try {
+      const chatMessage = `[PLAYLIST_SYNC] ${JSON.stringify(message)}`;
+      jitsiApi.executeCommand('sendChatMessage', chatMessage);
+    } catch (error) {
+      console.log('Chat method also failed:', error);
     }
     storePlaylistLocally(action === 'FULL_SYNC' ? data : playlist);
     setSyncStatus('syncing');
@@ -174,23 +113,16 @@ function App() {
         } else {
           message = JSON.parse(messageData.data);
         }
-      } else if (messageData.message) {
-         if (messageData.message.startsWith('[PLAYLIST_SYNC]')) {
-          message = JSON.parse(messageData.message.replace('[PLAYLIST_SYNC]', '').trim());
-        } else {
-            return;
-        }
       } else {
         return;
       }
-
       if (message.participantId === participantId) return;
 
       if (message.type === 'PLAYLIST_SYNC') {
         switch (message.action) {
           case 'ADD':
             setPlaylist((prev) => {
-              const exists = prev.find((video) => video.url === message.data.url);
+              const exists = prev.find((video) => video.id === message.data.id);
               if (!exists) {
                 const newPlaylist = [...prev, message.data];
                 storePlaylistLocally(newPlaylist);
@@ -214,11 +146,6 @@ function App() {
             setPlaylist(message.data);
             storePlaylistLocally(message.data);
             break;
-          case 'REQUEST_SYNC':
-              if (playlist.length > 0) {
-                  broadcastPlaylistUpdate('FULL_SYNC', playlist);
-              }
-              break;
         }
         setIsPlaylistSynced(true);
         setSyncStatus('connected');
@@ -232,17 +159,15 @@ function App() {
   const startPeriodicSync = () => {
     if (syncIntervalRef.current) {
       clearInterval(syncIntervalRef.current);
+      syncIntervalRef.current = null;
     }
     syncIntervalRef.current = setInterval(() => {
       if (jitsiApi && participantId) {
-        if (playlist.length === 0 || Date.now() - (getLocalPlaylist()?.timestamp || 0) > 60000) {
-            broadcastPlaylistUpdate('REQUEST_SYNC', null);
-        }
-
+        broadcastPlaylistUpdate('REQUEST_SYNC', null);
         const localData = getLocalPlaylist();
         if (localData && localData.participantId !== participantId) {
           const timeDiff = Date.now() - localData.timestamp;
-          if (timeDiff < 10000) {
+          if (timeDiff < 30000) {
             setPlaylist(localData.playlist);
             setIsPlaylistSynced(true);
             setSyncStatus('connected');
@@ -256,7 +181,6 @@ function App() {
     try {
       const jitsiVideoContainer = jitsiContainerRef.current;
       if (!jitsiVideoContainer) return;
-
       const videoIframes = jitsiVideoContainer.querySelectorAll('iframe');
       videoIframes.forEach(iframe => {
         if (iframe.src.includes('youtube.com')) {
@@ -269,13 +193,12 @@ function App() {
           setAudioMuted(true);
         }
       });
-
       const allVideos = jitsiVideoContainer.querySelectorAll('video');
       allVideos.forEach(element => {
-        if (!element.muted) {
-          element.muted = true;
-          element.volume = 0;
-        }
+          if (!element.muted) {
+              element.muted = true;
+              element.volume = 0;
+          }
       });
     } catch (error) {
       console.error('Error muting shared video:', error);
@@ -352,7 +275,6 @@ function App() {
               },
           };
 
-          // Confirmed Jitsi Instance
           const api = new window.JitsiMeetExternalAPI('meet-nso.diq.geoiq.ai', config);
           const newParticipantId = generateParticipantId();
           setParticipantId(newParticipantId);
@@ -361,12 +283,7 @@ function App() {
               setSyncStatus('connected');
               setTimeout(() => {
                   startPeriodicSync();
-                  const localData = getLocalPlaylist();
-                  if (localData && localData.playlist.length > 0) {
-                      broadcastPlaylistUpdate('FULL_SYNC', localData.playlist);
-                  } else {
-                      broadcastPlaylistUpdate('REQUEST_SYNC', null);
-                  }
+                  broadcastPlaylistUpdate('FULL_SYNC', playlist);
               }, 2000);
           });
 
@@ -378,9 +295,7 @@ function App() {
               }, 1000);
           });
 
-          api.addEventListener('endpointTextMessageReceived', (event) => {
-              if (event.data) handleIncomingMessage(event.data);
-          });
+          api.addEventListener('endpointTextMessageReceived', (event) => handleIncomingMessage(event));
           api.addEventListener('incomingMessage', (event) => {
               if (event.message && event.message.includes('[PLAYLIST_SYNC]')) {
                   handleIncomingMessage(event.message);
@@ -389,6 +304,8 @@ function App() {
           api.addEventListener('sharedVideoStarted', (event) => {
               setIsVideoSharing(true);
               setCurrentSharedVideo(event.url);
+              // This command forces the local player to be muted.
+              // It does not affect other participants' players.
               forceAudioMute();
           });
           api.addEventListener('sharedVideoStopped', (event) => {
@@ -413,7 +330,6 @@ function App() {
           setJitsiInitialized(false);
           setJitsiApi(null);
           setSyncStatus('disconnected');
-          showError('Failed to initialize Jitsi meeting. Check console for details.');
       } finally {
           setIsInitializing(false);
       }
@@ -457,7 +373,7 @@ function App() {
     script.src = jitsiScriptUrl;
     script.async = true;
     script.onload = initializeJitsi;
-    script.onerror = () => showError('Failed to load Jitsi External API script from meet-nso.diq.geoiq.ai. Please check your network connection.');
+    script.onerror = () => console.error('Failed to load Jitsi External API script.');
     document.head.appendChild(script);
   };
 
@@ -472,7 +388,7 @@ function App() {
       mutations.forEach((mutation) => {
         if (mutation.type === 'childList') {
           mutation.addedNodes.forEach((node) => {
-            if (node.tagName === 'IFRAME' || (node.querySelector && node.querySelector('iframe')) || node.tagName === 'VIDEO') {
+            if (node.tagName === 'IFRAME' || (node.querySelector && node.querySelector('iframe'))) {
               forceAudioMute();
             }
           });
@@ -486,21 +402,7 @@ function App() {
   const toggleMap = () => {
     setShowMap(!showMap);
     if (showPlaylist) setShowPlaylist(false);
-    if (showCobrowsing) setShowCobrowsing(false);
   };
-
-  const togglePlaylist = () => {
-    setShowPlaylist(!showPlaylist);
-    if (showMap) setShowMap(false);
-    if (showCobrowsing) setShowCobrowsing(false);
-  };
-
-  const toggleCobrowsing = () => {
-    setShowCobrowsing(!showCobrowsing);
-    if (showMap) setShowMap(false);
-    if (showPlaylist) setShowPlaylist(false);
-  };
-
   const shareVideoDirectly = () => {
     if (jitsiApi && videoUrl) {
       try {
@@ -542,16 +444,14 @@ function App() {
       try {
         const videoTitle = await fetchYouTubeVideoTitle(videoUrl);
         const newVideo = { id: Date.now() + Math.random(), url: videoUrl, videoId: videoId, title: videoTitle, };
-
         setPlaylist((prev) => {
           const newPlaylist = [...prev, newVideo];
           storePlaylistLocally(newPlaylist);
           return newPlaylist;
         });
+        setVideoUrl('');
         broadcastPlaylistUpdate('ADD', newVideo);
         setIsPlaylistSynced(true);
-        setVideoUrl('');
-
       } catch (error) {
         console.error('Error adding video to playlist:', error);
         const newVideo = { id: Date.now() + Math.random(), url: videoUrl, videoId: videoId, title: `Video ${playlist.length + 1}`, };
@@ -572,17 +472,12 @@ function App() {
 
   const removeFromPlaylist = (id) => {
     setPlaylist((prev) => {
-      const videoToRemove = prev.find(v => v.id === id);
-      if (currentSharedVideo === videoToRemove?.url) {
-        stopVideoSharing();
-      }
       const newPlaylist = prev.filter((video) => video.id !== id);
       storePlaylistLocally(newPlaylist);
-      broadcastPlaylistUpdate('REMOVE', { id });
       return newPlaylist;
     });
+    broadcastPlaylistUpdate('REMOVE', { id });
   };
-
   const handleShareVideo = (url) => {
     if (jitsiApi) {
       try {
@@ -603,6 +498,11 @@ function App() {
     } else {
       showError('Please wait for the meeting to load and join first');
     }
+  };
+
+  const togglePlaylist = () => {
+    setShowPlaylist(!showPlaylist);
+    if (showMap) setShowMap(false);
   };
 
   const extractYouTubeVideoId = (url) => {
@@ -634,43 +534,20 @@ function App() {
   const handleDragEnd = () => setDraggedItem(null);
   const filteredPlaylist = playlist.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  const handleCobrowsingInputChange = (e) => {
-    setCobrowsingInput(e.target.value);
-  };
-
-  const handleApplyCobrowsingUrl = () => {
-    let url = cobrowsingInput.trim();
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        url = `https://${url}`;
-    }
-    setCobrowsingUrl(url);
-    setCobrowsingInput(url);
-  };
-
-
   return (
-    <div className="h-screen w-screen flex flex-col bg-gray-950 text-white overflow-hidden font-sans">
-      {/* Header */}
-      <header className="bg-gray-900 p-4 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
-        {/* Title and Controls */}
-        <div className="flex items-center justify-between w-full md:w-auto mb-4 md:mb-0">
-          <div className="text-2xl font-bold text-white tracking-widest bg-red-600 px-3 py-1 rounded-lg">
-            LENSKART
-          </div>
+    <div className="h-screen w-screen flex flex-col bg-green-950 text-white overflow-hidden">
+      <header className="bg-green-900 px-4 py-2 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
+        <div className="flex items-center justify-between w-full md:w-auto mb-2 md:mb-0">
           <div className="flex items-center md:hidden gap-2">
-            <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:text-white" title={`Videos (${playlist.length})`}>
+            <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
-            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-red-500 hover:text-red-400" title="Show Map">
+            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-amber-500 hover:text-amber-600" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
-            </Button>
-            <Button onClick={toggleCobrowsing} variant="ghost" size="icon" className="text-yellow-500 hover:text-yellow-400" title="Co-browsing">
-              {showCobrowsing ? <X className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
             </Button>
           </div>
         </div>
 
-        {/* Desktop Controls */}
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
           <div className="flex items-center gap-2 w-full md:w-auto">
             <input
@@ -678,47 +555,46 @@ function App() {
               placeholder="Paste YouTube URL..."
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              className="flex-1 min-w-0 px-4 py-2 rounded-lg bg-gray-700 text-sm placeholder-gray-400 border border-gray-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
+              className={`flex-1 min-w-0 px-4 py-2 rounded-lg bg-amber-400 text-sm text-gray-900 placeholder-gray-900/70 border border-amber-600 focus:border-amber-700 focus:ring-1 focus:ring-amber-700 transition-colors`}
               onKeyPress={(e) => { if (e.key === 'Enter') shareVideoDirectly(); }}
               disabled={isInitializing || isLoadingVideoTitle}
             />
             {!isVideoSharing ? (
-              <Button onClick={shareVideoDirectly} className="bg-blue-600 hover:bg-blue-700 transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+              <Button
+                onClick={shareVideoDirectly}
+                className={`${videoUrl.trim() ? 'bg-amber-500 hover:bg-amber-600' : 'bg-amber-600 cursor-not-allowed'} transition-colors text-gray-900`}
+                disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}
+              >
                 Share
               </Button>
             ) : (
-              <Button onClick={stopVideoSharing} className="bg-red-600 hover:bg-red-700 transition-colors" disabled={isInitializing}>
+              <Button onClick={stopVideoSharing} className="bg-rose-600 hover:bg-rose-700 transition-colors text-white" disabled={isInitializing}>
                 Stop
               </Button>
             )}
-            <Button onClick={addToPlaylist} className="bg-green-600 hover:bg-green-700 text-white transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
+            <Button onClick={addToPlaylist} className="bg-amber-500 hover:bg-amber-600 text-gray-900 transition-colors" disabled={!videoUrl.trim() || isInitializing || isLoadingVideoTitle}>
               {isLoadingVideoTitle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </Button>
           </div>
           <div className="hidden md:flex items-center gap-2">
-            <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-700 hover:text-white" title={`Videos (${playlist.length})`}>
+            <Button onClick={togglePlaylist} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title={`Videos (${playlist.length})`}>
               {showPlaylist ? <ChevronDown className="w-5 h-5" /> : <List className="w-5 h-5" />}
             </Button>
-            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-red-500 hover:bg-gray-700 hover:text-red-400" title="Show Map">
+            <Button onClick={toggleMap} variant="ghost" size="icon" className="text-amber-500 hover:bg-green-700 hover:text-amber-500" title="Show Map">
               {showMap ? <X className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
-            </Button>
-            <Button onClick={toggleCobrowsing} variant="ghost" size="icon" className="text-yellow-500 hover:bg-gray-700 hover:text-yellow-400" title="Co-browsing">
-              {showCobrowsing ? <X className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col md:flex-row min-h-0 relative">
-        {/* Jitsi Container */}
-        <div className="w-full h-full bg-black flex flex-col min-h-0 relative">
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
+        <div className="w-full h-full bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl">
           {isInitializing && (
-            <div className="w-full h-full flex items-center justify-center bg-gray-950">
+            <div className="w-full h-full flex items-center justify-center bg-green-950">
               <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin text-white mx-auto mb-4" />
                 <p className="text-xl font-medium">Initializing meeting...</p>
-                <p className="text-gray-400 text-sm mt-1">Connecting to Lenskart instance at meet-nso.diq.geoiq.ai</p>
+                <p className="text-gray-400 text-sm mt-1">Please wait while we set up your conference</p>
               </div>
             </div>
           )}
@@ -733,24 +609,21 @@ function App() {
           />
         </div>
 
-        {/* Panels Container */}
-        {(showPlaylist || showMap || showCobrowsing) && (
-          <div className="fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 lg:w-1/3 bg-gray-800 border-t md:border-l border-gray-700 shadow-xl flex flex-col z-20 transition-all duration-300 ease-in-out">
-
-            {/* Playlist Panel */}
+        {(showPlaylist || showMap) && (
+          <div className="fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative md:w-1/2 bg-green-800 border-t md:border-l border-green-700 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out">
             {showPlaylist && (
               <div className="flex flex-col h-full">
-                <div className="bg-gray-900 p-4 flex items-center justify-between border-b border-gray-700 flex-shrink-0">
-                  <h2 className="text-lg font-semibold text-white">Video Playlist ({playlist.length})</h2>
+                <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
+                  <h2 className="text-lg font-semibold">Video Playlist ({playlist.length})</h2>
                   <div className="relative">
                     <input
                       type="text"
                       placeholder="Search videos..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-48 px-3 py-1 rounded-lg bg-gray-700 text-sm placeholder-gray-400 border border-gray-600 focus:border-blue-500 focus:outline-none pl-8"
+                      className="w-48 px-3 py-1 rounded-lg bg-green-700 text-sm placeholder-gray-300 border border-green-600 focus:border-lime-500 focus:outline-none pl-8"
                     />
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
@@ -765,11 +638,11 @@ function App() {
                       <div
                         key={video.id}
                         className={`
-                          bg-gray-700/50 rounded-xl p-3 shadow-md
+                          bg-green-700/50 rounded-xl p-3 shadow-md
                           flex items-center gap-4 cursor-grab
                           active:cursor-grabbing transform transition-all duration-150
-                          ${draggedItem?.id === video.id ? 'opacity-50 scale-95 ring-2 ring-blue-500' : ''}
-                          ${currentSharedVideo === video.url ? 'border-l-4 border-green-500' : 'border-l-4 border-transparent'}
+                          ${draggedItem?.id === video.id ? 'opacity-50 scale-95 ring-2 ring-lime-500' : ''}
+                          ${currentSharedVideo === video.url ? 'border-l-4 border-lime-500' : 'border-l-4 border-transparent'}
                         `}
                         draggable
                         onDragStart={(e) => handleDragStart(e, video)}
@@ -782,15 +655,15 @@ function App() {
                         </div>
                         <div className="flex-shrink-0 flex items-center gap-2 ml-4">
                           {currentSharedVideo === video.url ? (
-                            <Button onClick={stopVideoSharing} variant="ghost" size="icon" className="text-red-400 hover:bg-red-400/20" title="Stop this video" disabled={isInitializing}>
+                            <Button onClick={stopVideoSharing} variant="ghost" size="icon" className="text-rose-400 hover:bg-rose-400/20" title="Stop this video" disabled={isInitializing}>
                               <X className="w-4 h-4" />
                             </Button>
                           ) : (
-                            <Button onClick={() => handleShareVideo(video.url)} variant="ghost" size="icon" className="text-green-400 hover:bg-green-400/20" title="Play this video now" disabled={isInitializing}>
+                            <Button onClick={() => handleShareVideo(video.url)} variant="ghost" size="icon" className="text-emerald-400 hover:bg-emerald-400/20" title="Play this video now" disabled={isInitializing}>
                               <Play className="w-4 h-4" />
                             </Button>
                           )}
-                          <Button onClick={() => removeFromPlaylist(video.id)} variant="ghost" size="icon" className="text-red-400 hover:bg-red-400/20" title="Remove from playlist" disabled={isInitializing}>
+                          <Button onClick={() => removeFromPlaylist(video.id)} variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-700/20" title="Remove from playlist" disabled={isInitializing}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
@@ -801,66 +674,29 @@ function App() {
               </div>
             )}
 
-            {/* Map Panel */}
             {showMap && (
               <div className="flex flex-col h-full">
-                <div className="bg-gray-900 p-4 flex items-center justify-between border-b border-gray-700 flex-shrink-0">
-                  <h2 className="text-lg font-semibold text-white">Property Map (Lenskart Locations)</h2>
+                <div className="bg-green-900 p-4 flex items-center justify-between border-b border-green-700 flex-shrink-0">
+                  <h2 className="text-lg font-semibold">Map Services</h2>
                 </div>
                 <div className="flex-1 min-h-0">
                   <EnhancedFreeMap />
                 </div>
               </div>
             )}
-
-            {/* COBROWSING PANEL */}
-            {showCobrowsing && (
-              <div className="flex flex-col h-full">
-                <div className="bg-gray-900 p-4 border-b border-gray-700 flex-shrink-0">
-                  <h2 className="text-lg font-semibold text-white mb-2">Co-browsing (Shared Web View)</h2>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      placeholder="Enter URL to co-browse (e.g., lenskart.com)"
-                      value={cobrowsingInput}
-                      onChange={handleCobrowsingInputChange}
-                      onKeyPress={(e) => { if (e.key === 'Enter') handleApplyCobrowsingUrl(); }}
-                      className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-gray-700 text-sm placeholder-gray-400 border border-gray-600 focus:border-yellow-500 focus:outline-none"
-                    />
-                    <Button onClick={handleApplyCobrowsingUrl} className="bg-yellow-600 hover:bg-yellow-700 text-gray-900 font-bold" title="Share this URL">
-                      <ScreenShare className="w-4 h-4 mr-2" /> Share
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex-1 min-h-0 relative">
-                  <div className="absolute top-0 left-0 right-0 p-2 bg-yellow-900/50 text-yellow-300 text-xs border-b border-yellow-800 flex items-center">
-                    <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0" />
-                    <span>Note: Many sites will not load here due to security (X-Frame-Options).</span>
-                  </div>
-                  <iframe
-                    src={cobrowsingUrl}
-                    title="Co-browsing View"
-                    className="w-full h-full pt-10"
-                    allow="clipboard-read; clipboard-write"
-                  ></iframe>
-                </div>
-              </div>
-            )}
-
           </div>
         )}
       </div>
 
-      {/* Custom Error Modal */}
       {showErrorModal && (
-        <div className="fixed inset-0 bg-gray-950/75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+        <div className="fixed inset-0 bg-green-950/75 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-green-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-green-700">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center">
-                <AlertCircle className="w-6 h-6 text-red-500 mr-3" />
+                <AlertCircle className="w-6 h-6 text-lime-500 mr-3" />
                 <h2 className="text-white text-xl font-semibold">Error</h2>
               </div>
-              <Button onClick={() => setShowErrorModal(false)} variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-700">
+              <Button onClick={() => setShowErrorModal(false)} variant="ghost" size="icon" className="text-gray-400 hover:bg-green-700">
                 <X className="w-5 h-5" />
               </Button>
             </div>
@@ -868,7 +704,7 @@ function App() {
               {errorMessage}
             </p>
             <div className="mt-6 flex justify-end">
-              <Button onClick={() => setShowErrorModal(false)} className="bg-red-600 hover:bg-red-700 text-white">
+              <Button onClick={() => setShowErrorModal(false)} className="bg-lime-600 hover:bg-lime-700 text-white">
                 Close
               </Button>
             </div>
