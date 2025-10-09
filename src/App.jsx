@@ -28,7 +28,7 @@ function App() {
 
   // --- COBROWSING STATES & CONSTANTS ---
   const [showCobrowsingPanel, setShowCobrowsingPanel] = useState(false);
-  const COBROWSING_URL = 'https://geo-stream.replit.app/playback/c5eca37c-0e06-47ae-a96e-2ae1623e53fc?roomId=bdhOlu_XJu';
+  const COBROWSING_URL = 'https://geo-stream.replit.app';
   const COBROWSING_SYNC_TYPE = 'COBROWSING_SYNC';
   const PLAYLIST_SYNC_TYPE = 'PLAYLIST_SYNC';
   // ------------------------------------------
