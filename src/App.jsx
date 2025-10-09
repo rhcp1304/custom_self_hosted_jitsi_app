@@ -535,7 +535,10 @@
           };
 
           useEffect(() => {
-            initializeJitsiOnLoad();
+            // Only load the Jitsi script once when the component mounts
+            if (!jitsiInitialized && !isInitializing) {
+              initializeJitsiOnLoad();
+            }
             return () => { cleanupJitsi(); };
           }, []);
 
@@ -877,6 +880,5 @@
 
         ReactDOM.render(<App />, document.getElementById('root'));
     </script>
-    <script src="https://meet-nso.diq.geoiq.ai/external_api.js"></script>
 </body>
 </html>
