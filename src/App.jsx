@@ -28,7 +28,7 @@ function App() {
 
   // --- COBROWSING STATES & CONSTANTS ---
   const [showCobrowsingPanel, setShowCobrowsingPanel] = useState(false);
-  const COBROWSING_URL = 'https://geo-stream.replit.app';
+  const COBROWSING_URL = 'https://geo-stream.replit.app/playback/c5eca37c-0e06-47ae-a96e-2ae1623e53fc?roomId=bdhOlu_XJu';
   const COBROWSING_SYNC_TYPE = 'COBROWSING_SYNC';
   const PLAYLIST_SYNC_TYPE = 'PLAYLIST_SYNC';
   // ------------------------------------------
@@ -641,10 +641,13 @@ function App() {
         {/* --- Jitsi Container (20% width when any panel is open) --- */}
         <div
           className={`
-            bg-green-900 flex flex-col min-h-0 relative rounded-2xl ${isSidePanelOpen ? 'md:rounded-r-none' : ''} overflow-hidden shadow-2xl
-            ${isSidePanelOpen ? 'w-full md:w-[20%]' : 'w-full'}
+            bg-green-900 flex flex-col relative rounded-2xl ${isSidePanelOpen ? 'md:rounded-r-none' : ''} overflow-hidden shadow-2xl flex-shrink-0
+            ${isSidePanelOpen
+              ? 'w-full h-[35vh] md:w-[20%] md:h-full' // Mobile: Full width, 35vh height. Desktop: 20% width, full height.
+              : 'w-full h-full' // No panel open: Full width, full height.
+            }
           `}
-          style={{ transition: 'width 0.3s ease-in-out, opacity 0.3s ease-in-out' }}
+          style={{ transition: 'width 0.3s ease-in-out, opacity 0.3s ease-in-out, height 0.3s ease-in-out' }}
         >
           {isInitializing && (
             <div className="w-full h-full flex items-center justify-center bg-green-950">
@@ -660,7 +663,7 @@ function App() {
             id="jitsi-container"
             className="w-full h-full flex-1 min-h-0"
             style={{
-              minHeight: '400px',
+              minHeight: '400px', // This acts as a minimum safeguard, but h-[35vh] is active when panel is open on mobile
               display: isInitializing ? 'none' : 'block',
             }}
           />
