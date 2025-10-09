@@ -1,63 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button.jsx';
 import {
   MapPin, X, Youtube, List, Plus, Play, Trash2, Loader2, Search, ChevronDown, AlertCircle, Eye,
 } from 'lucide-react';
-
-// --- INLINE UI COMPONENT REPLACEMENTS (Ensuring self-contained file) ---
-
-// Simplified Button Component
-const Button = ({ children, onClick, className = '', variant = 'default', size = 'default', disabled = false, title = '' }) => {
-    let baseStyle = 'inline-flex items-center justify-center rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50 disabled:pointer-events-none shadow-md';
-    let variantStyle = '';
-    let sizeStyle = '';
-
-    switch (variant) {
-        case 'ghost':
-            variantStyle = 'bg-transparent hover:bg-green-700/50';
-            break;
-        case 'outline':
-            variantStyle = 'border border-amber-500 text-amber-500 hover:bg-amber-500/10';
-            break;
-        default:
-            variantStyle = 'bg-amber-500 text-gray-900 hover:bg-amber-600';
-    }
-
-    switch (size) {
-        case 'icon':
-            sizeStyle = 'h-10 w-10 p-2';
-            break;
-        case 'sm':
-            sizeStyle = 'h-9 px-3';
-            break;
-        default:
-            sizeStyle = 'h-10 px-4 py-2';
-    }
-
-    return (
-        <button
-            onClick={onClick}
-            className={`${baseStyle} ${variantStyle} ${sizeStyle} ${className}`}
-            disabled={disabled}
-            title={title}
-        >
-            {children}
-        </button>
-    );
-};
-
-// Stub for EnhancedFreeMap (since the original was an external import)
-const EnhancedFreeMap = () => (
-    <div className="p-4 flex items-center justify-center h-full bg-green-950">
-        <div className="text-center text-amber-400">
-            <MapPin className="w-8 h-8 mx-auto mb-2 text-amber-500" />
-            <p className="text-lg font-medium">Map View</p>
-            <p className="text-sm text-gray-400">Location services are active here.</p>
-        </div>
-    </div>
-);
-
-
-// --- MAIN APP COMPONENT ---
+import EnhancedFreeMap from './components/EnhancedFreeMap.jsx';
+import './App.css';
+// import LenskartLogo from './logo.png'; // Assuming this is not strictly needed for the functionality
 
 function App() {
   const [showMap, setShowMap] = useState(false);
@@ -80,8 +28,7 @@ function App() {
 
   // --- COBROWSING STATES & CONSTANTS ---
   const [showCobrowsingPanel, setShowCobrowsingPanel] = useState(false);
-  // Using the original COBROWSING_URL from the file
-  const COBROWSING_URL = 'https://geo-stream.replit.app/playback/c5eca37c-0e06-47ae-a96e-2ae1623e53fc';
+  const COBROWSING_URL = 'https://geo-stream.replit.app';
   const COBROWSING_SYNC_TYPE = 'COBROWSING_SYNC';
   const PLAYLIST_SYNC_TYPE = 'PLAYLIST_SYNC';
   // ------------------------------------------
@@ -119,11 +66,7 @@ function App() {
       timestamp: Date.now(),
       participantId: participantId,
     };
-    try {
-        localStorage.setItem('jitsi_shared_playlist', JSON.stringify(data));
-    } catch (e) {
-        console.error('Failed to store playlist locally.', e);
-    }
+    localStorage.setItem('jitsi_shared_playlist', JSON.stringify(data));
   };
 
   const getLocalPlaylist = () => {
@@ -148,15 +91,21 @@ function App() {
       timestamp: Date.now(),
     };
     try {
+      // 1. Try sending via the silent data channel first (preferred)
       jitsiApi.executeCommand('sendEndpointTextMessage', '', JSON.stringify(message));
     } catch (error) {
       console.log('Data channel failed, trying chat:', error);
     }
-    try {
-      const chatMessage = `[${type}] ${JSON.stringify(message)}`;
-      jitsiApi.executeCommand('sendChatMessage', chatMessage);
-    } catch (error) {
-      console.log('Chat method also failed:', error);
+
+    // 2. ONLY use the public chat as a fallback for PLAYLIST synchronization.
+    // We skip this for COBROWSING to prevent chat spam.
+    if (type !== COBROWSING_SYNC_TYPE) {
+        try {
+          const chatMessage = `[${type}] ${JSON.stringify(message)}`;
+          jitsiApi.executeCommand('sendChatMessage', chatMessage);
+        } catch (error) {
+          console.log('Chat method also failed:', error);
+        }
     }
 
     if (type === PLAYLIST_SYNC_TYPE) {
@@ -624,6 +573,9 @@ function App() {
   const handleDragEnd = () => setDraggedItem(null);
   const filteredPlaylist = playlist.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
+  // Determine if any side panel is open for layout changes
+  const isSidePanelOpen = showPlaylist || showMap || showCobrowsingPanel;
+
   return (
     <div className="h-screen w-screen flex flex-col bg-green-950 text-white overflow-hidden">
       <header className="bg-green-900 px-4 py-2 flex flex-col md:flex-row justify-between items-center flex-shrink-0 shadow-lg">
@@ -686,11 +638,11 @@ function App() {
       </header>
 
       <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
-        {/* Jitsi Container */}
+        {/* --- Jitsi Container (20% width when any panel is open) --- */}
         <div
           className={`
-            bg-green-900 flex flex-col min-h-0 relative rounded-2xl overflow-hidden shadow-2xl
-            ${showCobrowsingPanel && !(showPlaylist || showMap) ? 'w-0 md:w-0 md:opacity-0' : (showPlaylist || showMap) ? 'w-full md:w-1/2' : 'w-full'}
+            bg-green-900 flex flex-col min-h-0 relative rounded-2xl ${isSidePanelOpen ? 'md:rounded-r-none' : ''} overflow-hidden shadow-2xl
+            ${isSidePanelOpen ? 'w-full md:w-[20%]' : 'w-full'}
           `}
           style={{ transition: 'width 0.3s ease-in-out, opacity 0.3s ease-in-out' }}
         >
@@ -714,12 +666,12 @@ function App() {
           />
         </div>
 
-        {/* --- Side Panel Container (Now with rounded edges on desktop) --- */}
-        {(showPlaylist || showMap || showCobrowsingPanel) && (
+        {/* --- Side Panel Container (80% width when open) --- */}
+        {isSidePanelOpen && (
           <div className={`
-            fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative bg-green-800 border-t md:border-t-0 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
-            ${showCobrowsingPanel && !(showPlaylist || showMap) ? 'md:w-full' : 'md:w-1/2 md:border-l border-green-700'}
-            md:rounded-2xl md:overflow-hidden // ADDED ROUNDING HERE
+            fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative bg-green-800 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
+            rounded-t-2xl md:rounded-r-2xl md:rounded-l-none overflow-hidden
+            md:w-[80%] md:border-l md:border-t-0 border-green-700
           `}>
 
             {showPlaylist && (
@@ -796,15 +748,8 @@ function App() {
               </div>
             )}
 
-            {/* --- Cobrowsing Panel: Cleaned up as requested --- */}
             {showCobrowsingPanel && (
               <div className="flex flex-col h-full">
-                {/* Header with only the close button (Title removed for clean UI) */}
-                <div className="bg-green-900 p-4 flex items-center justify-end border-b border-green-700 flex-shrink-0">
-                  <Button onClick={toggleCobrowsing} variant="ghost" size="icon" className="text-rose-400 hover:bg-rose-400/20" title="Stop sharing walkthrough">
-                      <X className="w-5 h-5" />
-                  </Button>
-                </div>
                 <div className="flex-1 min-h-0 relative">
                   <iframe
                       src={COBROWSING_URL}
@@ -813,7 +758,6 @@ function App() {
                       allow="camera; microphone; geolocation; display-capture; autoplay"
                       referrerPolicy="no-referrer"
                   />
-                  {/* Banner text removed for clean UI */}
                 </div>
               </div>
             )}
