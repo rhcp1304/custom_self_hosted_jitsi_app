@@ -576,7 +576,7 @@ function App() {
   // Determine if any side panel is open for layout changes
   const isSidePanelOpen = showPlaylist || showMap || showCobrowsingPanel;
 
-  // Determine if the COBROWSING panel is open specifically for the 20%/80% split
+  // Determine if the COBROWSING panel is open specifically for the 100% / 80% split
   const isCobrowsingPanelActive = showCobrowsingPanel;
 
   return (
@@ -641,15 +641,20 @@ function App() {
       </header>
 
       <div className="flex-1 flex flex-col md:flex-row min-h-0 relative bg-green-900 p-4 md:p-8">
-        {/* --- Jitsi Container (Reduced to 20% width when COBROWSING panel is open) --- */}
+        {/* --- Jitsi Container ---
+          Logic:
+          1. If Cobrowsing is active: Hide on mobile (w-0 h-0), 20% width on desktop.
+          2. If other panel is active: 35vh height on mobile, 20% width on desktop.
+          3. No panel: Full width/height.
+        */}
         <div
           className={`
             bg-green-900 flex flex-col relative rounded-2xl ${isSidePanelOpen ? 'md:rounded-r-none' : ''} overflow-hidden shadow-2xl flex-shrink-0
             ${isCobrowsingPanelActive
-              ? 'w-full h-[35vh] md:w-[20%] md:h-full' // Mobile: Full width, 35vh height. Desktop: 20% width, full height.
+              ? 'w-0 h-0 md:w-[20%] md:h-full' // 👈 Cobrowsing Active: Hide on mobile, 20% on desktop
               : isSidePanelOpen
-                ? 'w-full h-[35vh] md:w-[20%] md:h-full' // Other panel open: Same 20% width on desktop
-                : 'w-full h-full' // No panel open: Full width, full height.
+                ? 'w-full h-[35vh] md:w-[20%] md:h-full' // Other Panel Active: 35vh on mobile, 20% on desktop
+                : 'w-full h-full' // No Panel Active: Full width/height
             }
           `}
           style={{ transition: 'width 0.3s ease-in-out, opacity 0.3s ease-in-out, height 0.3s ease-in-out' }}
@@ -668,16 +673,22 @@ function App() {
             id="jitsi-container"
             className="w-full h-full flex-1 min-h-0"
             style={{
-              minHeight: '400px', // This acts as a minimum safeguard, but h-[35vh] is active when panel is open on mobile
+              minHeight: '400px',
               display: isInitializing ? 'none' : 'block',
             }}
           />
         </div>
 
-        {/* --- Side Panel Container (Allocates 100% of remaining space, which is 80% on desktop) --- */}
+        {/* --- Side Panel Container (Cobrowsing, Map, Playlist) ---
+          Logic:
+          1. If Cobrowsing is active: 100% width/height on mobile, 80% width on desktop.
+          2. If other panel is active: 2/3 height on mobile (existing layout), 80% width on desktop.
+        */}
         {isSidePanelOpen && (
           <div className={`
-            fixed bottom-0 left-0 right-0 h-2/3 md:h-full md:relative bg-green-800 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
+            fixed bottom-0 left-0 right-0
+            ${isCobrowsingPanelActive ? 'h-full w-full' : 'h-2/3 w-full'}
+            md:h-full md:relative bg-green-800 shadow-xl flex flex-col z-20 transition-transform duration-300 ease-in-out
             rounded-t-2xl md:rounded-r-2xl md:rounded-l-none overflow-hidden
             md:w-[80%] md:border-l md:border-t-0 border-green-700
           `}>
@@ -759,7 +770,6 @@ function App() {
             {showCobrowsingPanel && (
               <div className="flex flex-col h-full">
                 <div className="flex-1 min-h-0 relative">
-                  {/* The iframe is already set to w-full h-full, which means it will occupy 100% of the parent container (which is 80% of the screen width on desktop). */}
                   <iframe
                       src={COBROWSING_URL}
                       title="Property Cobrowsing Stream"
